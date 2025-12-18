@@ -436,10 +436,10 @@ model CoinBundle {
   created_at  DateTime     @default(now())
   updated_at  DateTime     @default(now())
   deleted_at  DateTime?
-  name        Int
+  name        String
   price       Int
   coin_amount Int
-  total_cell  Int
+  total_sold  Int?
   status      BundleStatus @default(Active)
   user_id     String?
   user        User?        @relation(fields: [user_id], references: [id])
@@ -456,7 +456,8 @@ model EventTicket {
   event_date   DateTime
   revenue      Int
   ticket_price Int
-  total_sold   Int
+  total_sold   Int?
+  sold_limit   Int?
   status       BundleStatus @default(Active)
   user_id      String?
   user         User?        @relation(fields: [user_id], references: [id])
