@@ -87,6 +87,8 @@ model User {
   roles                Role[]
   role_users           RoleUser[]
   payment_transactions PaymentTransaction[]
+  coinBundles          CoinBundle[]
+  eventTickets         EventTicket[]
 
   @@map("users")
 }
@@ -422,6 +424,44 @@ model UserSetting {
   value String?
 
   @@map("user_settings")
+}
+
+enum BundleStatus {
+  Active
+  Inactive
+}
+
+model CoinBundle {
+  id          String       @id @default(cuid())
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @default(now())
+  deleted_at  DateTime?
+  name        Int
+  price       Int
+  coin_amount Int
+  total_cell  Int
+  status      BundleStatus @default(Active)
+  user_id     String?
+  user        User?        @relation(fields: [user_id], references: [id])
+
+  @@map("coin_bundles")
+}
+
+model EventTicket {
+  id           String       @id @default(cuid())
+  created_at   DateTime     @default(now())
+  updated_at   DateTime     @default(now())
+  deleted_at   DateTime?
+  event_name   String
+  event_date   DateTime
+  revenue      Int
+  ticket_price Int
+  total_sold   Int
+  status       BundleStatus @default(Active)
+  user_id      String?
+  user         User?        @relation(fields: [user_id], references: [id])
+
+  @@map("event_tickets")
 }
 
 // this table stores example
