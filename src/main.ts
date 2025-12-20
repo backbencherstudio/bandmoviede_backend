@@ -45,6 +45,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
+      whitelist: true,
     }),
   );
   app.useGlobalFilters(new CustomExceptionFilter());
@@ -82,6 +83,6 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
   // end swagger
 
-  await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 4000);
 }
 bootstrap();

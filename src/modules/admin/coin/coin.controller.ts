@@ -21,6 +21,7 @@ import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Request } from 'express';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
@@ -37,7 +38,7 @@ export class CoinController {
     }),
   )
   createCoinBundle(
-    @Req() req: any,
+    @Req() req: Request,
     @Body() createCoinDto: CreateCoinDto,
     @UploadedFile() thumbnail: Express.Multer.File,
   ) {

@@ -15,35 +15,31 @@ export class CoinService {
     createCoinDto: CreateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
-    try {
-      const { price, coin_amount } = createCoinDto;
-      // Generate a random 8-character string for name
-      const name = StringHelper.randomString(8).toUpperCase();
-      const fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
+    const { price, coin_amount } = createCoinDto;
+    // Generate a random 8-character string for name
+    const name = StringHelper.randomString(8).toUpperCase();
+    let fileName: string | null = null;
+    if (thumbnail) {
+      fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
       await SojebStorage.put(
         appConfig().storageUrl.coinThumbnails + fileName,
         thumbnail.buffer,
       );
-
-      await this.prisma.coinBundle.create({
-        data: {
-          name,
-          price,
-          coin_amount,
-          user_id: userId,
-          thumbnail: fileName,
-        },
-      });
-      return {
-        success: true,
-        message: 'Coin bundle created successfully',
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Failed to create coin bundle',
-      };
     }
+
+    await this.prisma.coinBundle.create({
+      data: {
+        name,
+        price,
+        coin_amount,
+        user_id: userId,
+        ...(thumbnail && fileName ? { thumbnail: fileName } : {}),
+      },
+    });
+    return {
+      success: true,
+      message: 'Coin bundle created successfully',
+    };
   }
 
   findAll() {

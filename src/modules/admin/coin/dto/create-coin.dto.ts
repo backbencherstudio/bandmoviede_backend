@@ -1,14 +1,24 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsString } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateCoinDto {
   @IsNotEmpty()
-  @Type(() => Number)
+  @Transform(({ value }) => Number(value))
   @IsInt()
   price: number;
 
   @IsNotEmpty()
-  @Type(() => Number)
+  @Transform(({ value }) => Number(value))
   @IsInt()
   coin_amount: number;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 }
