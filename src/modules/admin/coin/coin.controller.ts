@@ -45,7 +45,7 @@ export class CoinController {
     @UploadedFile() thumbnail: Express.Multer.File,
   ) {
     const userId = req.user.userId;
-    return this.coinService.createCoinBundle(userId, createCoinDto, thumbnail);
+    return this.coinService.create(userId, createCoinDto, thumbnail);
   }
 
   @Get()
@@ -59,8 +59,17 @@ export class CoinController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCoinDto: UpdateCoinDto) {
-    return this.coinService.update(id, updateCoinDto);
+  @UseInterceptors(
+    FileInterceptor('thumbnail', {
+      storage: memoryStorage(),
+    }),
+  )
+  updateCoinBundle(
+    @Param('id') id: string,
+    @Body() updateCoinDto: UpdateCoinDto,
+    @UploadedFile() thumbnail: Express.Multer.File,
+  ) {
+    return this.coinService.update(id, updateCoinDto, thumbnail);
   }
 
   @Delete(':id')

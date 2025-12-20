@@ -1,7 +1,11 @@
-import { Controller, Get, Param, UseGuards, Post, Body, Req } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Post, Body, Req } from '@nestjs/common';
 import { CoinService } from './coin.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guard/role/roles.guard';
+import { Roles } from 'src/common/guard/role/roles.decorator';
+import { Role } from 'src/common/guard/role/role.enum';
+import { FindAllQueryDto } from './dto/query-coin.dto';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
@@ -11,8 +15,8 @@ export class CoinController {
   constructor(private readonly coinService: CoinService) {}
 
   @Get('all')
-  getAllCoinBundle() {
-    return this.coinService.findAllCoinBundle();
+  getAllCoinBundle(@Query() query: FindAllQueryDto) {
+    return this.coinService.findAllCoinBundle(query);
   }
 
   @Get('bundle/:id')
@@ -21,7 +25,7 @@ export class CoinController {
   }
 
   @Post('order')
-  createCoinOrder(@Body('bundle_id') bundle_id: string, @Req() req: any) {
-    return this.coinService.createCoinOrder(req.user.sub, bundle_id);
+  createCoinOrder(@Body() body: { bundle_id: string }, @Req() req: any) {
+    return this.coinService.createCoinOrder(req.user.sub, body.bundle_id);
   }
 }

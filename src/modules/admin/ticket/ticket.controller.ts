@@ -7,6 +7,10 @@ import {
   Param,
   Delete,
   UseGuards,
+  Req,
+  UseInterceptors,
+  UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -16,6 +20,10 @@ import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guard/role/roles.guard';
 import { Role } from 'src/common/guard/role/role.enum';
 import { Roles } from 'src/common/guard/role/roles.decorator';
+import { Request } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { FindAllQueryDto } from './dto/query-ticket.dto';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
@@ -26,27 +34,46 @@ export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
   @Post()
-  create(@Body() createTicketDto: CreateTicketDto) {
-    return this.ticketService.create(createTicketDto);
+  @UseInterceptors(
+    FileInterceptor('thumbnail', {
+      storage: memoryStorage(),
+    }),
+  )
+  create(
+    @Req() req: Request,
+    @Body() createTicketDto: CreateTicketDto,
+    @UploadedFile() thumbnail: Express.Multer.File,
+  ) {
+    const { userId } = req.user;
+    return this.ticketService.create(createTicketDto, userId, thumbnail);
   }
 
   @Get()
-  findAll() {
-    return this.ticketService.findAll();
+  findAll(@Query() query: FindAllQueryDto) {
+    return this.ticketService.findAll(query);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.ticketService.findOne(+id);
+    return this.ticketService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTicketDto: UpdateTicketDto) {
-    return this.ticketService.update(+id, updateTicketDto);
+  @UseInterceptors(
+    FileInterceptor('thumbnail', {
+      storage: memoryStorage(),
+    }),
+  )
+  update(
+    @Param('id') id: string,
+    @Body() updateTicketDto: UpdateTicketDto,
+    @UploadedFile() thumbnail: Express.Multer.File,
+  ) {
+    return this.ticketService.update(id, updateTicketDto, thumbnail);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.ticketService.remove(+id);
+    return this.ticketService.remove(id);
   }
 }
