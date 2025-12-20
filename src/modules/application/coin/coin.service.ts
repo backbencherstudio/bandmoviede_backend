@@ -1,26 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import { CreateCoinDto } from './dto/create-coin.dto';
 import { UpdateCoinDto } from './dto/update-coin.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class CoinService {
-  create(createCoinDto: CreateCoinDto) {
-    return 'This action adds a new coin';
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return `This action returns all coin`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} coin`;
-  }
-
-  update(id: number, updateCoinDto: UpdateCoinDto) {
-    return `This action updates a #${id} coin`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} coin`;
+  async findAllCoinBundle() {
+    try {
+      const coinBundle = await this.prisma.coinBundle.findMany({
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          coin_amount: true,
+        },
+      });
+      return {
+        success: true,
+        data: coinBundle,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to get coin bundle',
+      };
+    }
   }
 }
