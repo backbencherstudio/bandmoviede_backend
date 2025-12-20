@@ -2,12 +2,14 @@ import { Controller, Post, Req, Headers } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { Request } from 'express';
 import { TransactionRepository } from '../../../common/repository/transaction/transaction.repository';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('payment/stripe')
 export class StripeController {
   constructor(
     private readonly stripeService: StripeService,
     private transactionRepository: TransactionRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post('webhook')
@@ -18,7 +20,6 @@ export class StripeController {
     try {
       const payload = req.rawBody.toString();
       const event = await this.stripeService.handleWebhook(payload, signature);
-
       // Handle events
       switch (event.type) {
         case 'customer.created':
@@ -39,6 +40,19 @@ export class StripeController {
             paid_currency: paymentIntent.currency,
             raw_status: paymentIntent.status,
           });
+
+          if (paymentIntent.metadata['type'] === 'coin_order') {
+            await this.prisma.coinOrder.updateMany({
+              where: {
+                transaction: {
+                  reference_number: paymentIntent.id,
+                },
+              },
+              data: {
+                status: 'completed',
+              },
+            });
+          }
           break;
         case 'payment_intent.payment_failed':
           const failedPaymentIntent = event.data.object;
