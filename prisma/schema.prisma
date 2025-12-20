@@ -436,15 +436,15 @@ model CoinBundle {
   created_at  DateTime     @default(now())
   updated_at  DateTime     @default(now())
   deleted_at  DateTime?
-  sku         String
-  price       Int          @default(0)
-  coin_amount Int          @default(0)
-  total_sold  Int?         @default(0)
-  status      BundleStatus @default(Inactive)
+  name        String
+  price       Int
+  coin_amount Int
+  total_sold  Int?
+  thumbnail   String?
+  status      BundleStatus @default(Active)
   user_id     String?
-  user        User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user        User?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([sku])
   @@index([user_id])
   @@index([status])
   @@index([created_at])
@@ -457,12 +457,15 @@ model EventTicket {
   created_at   DateTime     @default(now())
   updated_at   DateTime     @default(now())
   deleted_at   DateTime?
-  event_name   String
+  title        String
+  description  String?
   event_date   DateTime
+  location     String?
   revenue      Int
   ticket_price Int
   total_sold   Int?
   sold_limit   Int?
+  thumbnail    String?
   status       BundleStatus @default(Active)
   user_id      String?
   user         User?        @relation(fields: [user_id], references: [id])
