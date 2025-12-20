@@ -50,22 +50,30 @@ export class CoinService {
     const take = limit;
     const where: Prisma.CoinBundleWhereInput = {};
     if (search) {
-      where.name = {
-        contains: search,
-        mode: 'insensitive',
-      };
-      if (search === 'active') {
-        where.status = 'Active';
-      } else if (search === 'inactive') {
-        where.status = 'Inactive';
-      }
-      // if(Number(search)){
-      //   where.OR={
-      //     price:{
+      const numSearch = Number(search);
+      const isNumber = !isNaN(numSearch);
+      where.OR = [
+        {
+          name: {
+            contains: search,
+            mode: 'insensitive',
+          },
+        },
+      ];
 
-      //     }
-      //   };
-      // }
+      if (search.toLowerCase() === 'active') {
+        where.OR.push({ status: 'Active' });
+      } else if (search.toLowerCase() === 'inactive') {
+        where.OR.push({ status: 'Inactive' });
+      }
+
+      if (isNumber) {
+        where.OR.push(
+          { price: numSearch },
+          { coin_amount: numSearch },
+          { total_sold: numSearch },
+        );
+      }
     }
 
     const data = await this.prisma.coinBundle.findMany({
@@ -79,7 +87,21 @@ export class CoinService {
         created_at: true,
         updated_at: true,
       },
+      where,
+      skip,
+      take,
     });
+    const count = await this.prisma.coinBundle.count({ where });
+    return {
+      success: true,
+      message: 'Coin bundles fetched successfully',
+      data,
+      meta_data: {
+        page,
+        limit,
+        total: count,
+      },
+    };
   }
 
   findOne(id: string) {

@@ -469,9 +469,9 @@ model EventTicket {
   include      String[]     @default([])
   event_date   DateTime
   location     String?
-  revenue      Int          @default(0)
+  revenue      Int?         @default(0)
   ticket_price Int          @default(0)
-  total_sold   Int          @default(0)
+  total_sold   Int?         @default(0)
   sold_limit   Int?
   thumbnail    String?
   status       BundleStatus @default(Active)
