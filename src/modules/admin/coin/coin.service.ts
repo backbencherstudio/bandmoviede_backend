@@ -55,7 +55,7 @@ export class CoinService {
       data: {
         ...coinBundle,
         thumbnail: thumbnail
-          ? appConfig().storageUrl.coinThumbnails + fileName
+          ? SojebStorage.url(appConfig().storageUrl.coinThumbnails + fileName)
           : null,
       },
     };
@@ -147,7 +147,9 @@ export class CoinService {
       data: {
         ...coinBundle,
         thumbnail: coinBundle?.thumbnail
-          ? appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+            )
           : null,
       },
     };
@@ -192,7 +194,9 @@ export class CoinService {
       data: {
         ...coinBundle,
         thumbnail: coinBundle?.thumbnail
-          ? appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+            )
           : null,
       },
     };

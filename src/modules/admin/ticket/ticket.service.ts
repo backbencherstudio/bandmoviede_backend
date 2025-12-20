@@ -73,7 +73,9 @@ export class TicketService {
       data: {
         ...ticket,
         thumbnail: ticket?.thumbnail
-          ? appConfig().storageUrl.ticketThumbnails + ticket.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       },
     };
@@ -161,7 +163,9 @@ export class TicketService {
       data: {
         ...ticket,
         thumbnail: ticket?.thumbnail
-          ? appConfig().storageUrl.ticketThumbnails + ticket.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       },
     };
@@ -213,7 +217,9 @@ export class TicketService {
       data: {
         ...ticket,
         thumbnail: ticket?.thumbnail
-          ? appConfig().storageUrl.ticketThumbnails + ticket.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       },
     };
