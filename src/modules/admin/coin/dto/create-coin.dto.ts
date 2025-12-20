@@ -20,5 +20,5 @@ export class CreateCoinDto {
 
   @IsOptional()
   @IsBoolean()
-  is_active?: boolean;
+  is_active?: boolean = true;
 }

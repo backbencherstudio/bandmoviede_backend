@@ -12,12 +12,12 @@ import { Prisma } from 'prisma/generated/client';
 export class CoinService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createCoinBundle(
+  async create(
     userId: string,
     createCoinDto: CreateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
-    const { price, coin_amount } = createCoinDto;
+    const { price, coin_amount, is_active = true } = createCoinDto;
     // Generate a random 8-character string for name
     const name = StringHelper.randomString(8).toUpperCase();
     let fileName: string | null = null;
@@ -29,18 +29,35 @@ export class CoinService {
       );
     }
 
-    await this.prisma.coinBundle.create({
+    const coinBundle = await this.prisma.coinBundle.create({
       data: {
         name,
         price,
         coin_amount,
         user_id: userId,
+        status: is_active ? 'Active' : 'Inactive',
         ...(thumbnail && fileName ? { thumbnail: fileName } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        coin_amount: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        thumbnail: true,
       },
     });
     return {
       success: true,
       message: 'Coin bundle created successfully',
+      data: {
+        ...coinBundle,
+        thumbnail: thumbnail
+          ? appConfig().storageUrl.coinThumbnails + fileName
+          : null,
+      },
     };
   }
 
@@ -76,22 +93,27 @@ export class CoinService {
       }
     }
 
-    const data = await this.prisma.coinBundle.findMany({
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        coin_amount: true,
-        total_sold: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-      },
-      where,
-      skip,
-      take,
-    });
-    const count = await this.prisma.coinBundle.count({ where });
+    const [data, count] = await Promise.all([
+      this.prisma.coinBundle.findMany({
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          coin_amount: true,
+          total_sold: true,
+          status: true,
+          created_at: true,
+          updated_at: true,
+        },
+        orderBy: {
+          created_at: 'desc',
+        },
+        where,
+        skip,
+        take,
+      }),
+      this.prisma.coinBundle.count({ where }),
+    ]);
     return {
       success: true,
       message: 'Coin bundles fetched successfully',
@@ -104,18 +126,83 @@ export class CoinService {
     };
   }
 
-  findOne(id: string) {
-    return this.prisma.coinBundle.findUnique({ where: { id } });
-  }
-
-  update(id: string, updateCoinDto: UpdateCoinDto) {
-    return this.prisma.coinBundle.update({
+  async findOne(id: string) {
+    const coinBundle = await this.prisma.coinBundle.findUnique({
       where: { id },
-      data: updateCoinDto,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        coin_amount: true,
+        total_sold: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        thumbnail: true,
+      },
     });
+    return {
+      success: true,
+      message: 'Coin bundle fetched successfully',
+      data: {
+        ...coinBundle,
+        thumbnail: coinBundle?.thumbnail
+          ? appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail
+          : null,
+      },
+    };
   }
 
-  remove(id: string) {
-    return this.prisma.coinBundle.delete({ where: { id } });
+  async update(
+    id: string,
+    updateCoinDto: UpdateCoinDto,
+    thumbnail?: Express.Multer.File,
+  ) {
+    const { is_active = true, ...rest } = updateCoinDto;
+    let fileName: string | null = null;
+    if (thumbnail) {
+      fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
+      await SojebStorage.put(
+        appConfig().storageUrl.coinThumbnails + fileName,
+        thumbnail.buffer,
+      );
+    }
+
+    const coinBundle = await this.prisma.coinBundle.update({
+      where: { id },
+      data: {
+        ...rest,
+        status: is_active ? 'Active' : 'Inactive',
+        ...(thumbnail && fileName ? { thumbnail: fileName } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        coin_amount: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        thumbnail: true,
+      },
+    });
+    return {
+      success: true,
+      message: 'Coin bundle updated successfully',
+      data: {
+        ...coinBundle,
+        thumbnail: coinBundle?.thumbnail
+          ? appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail
+          : null,
+      },
+    };
+  }
+
+  async remove(id: string) {
+    await this.prisma.coinBundle.delete({ where: { id } });
+    return {
+      success: true,
+      message: 'Coin bundle deleted successfully',
+    };
   }
 }

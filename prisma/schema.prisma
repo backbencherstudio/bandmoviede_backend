@@ -436,10 +436,11 @@ enum BundleStatus {
 }
 
 model CoinBundle {
-  id          String       @id @default(cuid())
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @default(now())
-  deleted_at  DateTime?
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
   name        String
   price       Int
   coin_amount Int
@@ -447,8 +448,9 @@ model CoinBundle {
   thumbnail   String?
   status      BundleStatus @default(Active)
   user_id     String?
-  user        User?        @relation(fields: [user_id], references: [id])
-  coinOrders  CoinOrder[]
+
+  user       User?       @relation(fields: [user_id], references: [id])
+  coinOrders CoinOrder[]
 
   @@index([user_id])
   @@index([status])
@@ -466,7 +468,7 @@ model EventTicket {
   title        String
   description  String?
   about        String?
-  include      String[]     @default([])
+  included     String[]     @default([])
   event_date   DateTime
   location     String?
   revenue      Int?         @default(0)
