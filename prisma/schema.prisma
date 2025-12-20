@@ -89,6 +89,8 @@ model User {
   payment_transactions PaymentTransaction[]
   coinBundles          CoinBundle[]
   eventTickets         EventTicket[]
+  coinOrders           CoinOrder[]
+  eventOrders          EventOrder[]
 
   @@map("users")
 }
@@ -243,16 +245,18 @@ model PaymentTransaction {
   user    User?   @relation(fields: [user_id], references: [id])
 
   order_id         String?
-  type             String?  @default("order")
-  withdraw_via     String?  @default("wallet")
+  type             String?      @default("order")
+  withdraw_via     String?      @default("wallet")
   provider         String?
   reference_number String?
-  status           String?  @default("pending")
+  status           String?      @default("pending")
   raw_status       String?
   amount           Decimal?
   currency         String?
   paid_amount      Decimal?
   paid_currency    String?
+  coinOrders       CoinOrder[]
+  eventOrders      EventOrder[]
 
   @@map("payment_transactions")
 }
@@ -443,7 +447,8 @@ model CoinBundle {
   thumbnail   String?
   status      BundleStatus @default(Active)
   user_id     String?
-  user        User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user        User?        @relation(fields: [user_id], references: [id])
+  coinOrders  CoinOrder[]
 
   @@index([user_id])
   @@index([status])
@@ -470,8 +475,9 @@ model EventTicket {
   sold_limit   Int?
   thumbnail    String?
   status       BundleStatus @default(Active)
-  user_id      String? //event ticket creator id
-  user         User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user_id      String?
+  user         User?        @relation(fields: [user_id], references: [id])
+  eventOrders  EventOrder[]
 
   @@index([user_id])
   @@index([status])
@@ -480,6 +486,48 @@ model EventTicket {
   @@index([event_date])
   @@index([location])
   @@map("event_tickets")
+}
+
+model CoinOrder {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  coin_bundle_id String
+  coin_bundle    CoinBundle @relation(fields: [coin_bundle_id], references: [id])
+
+  amount   Int
+  quantity Int    @default(1)
+  status   String @default("pending")
+
+  transaction_id String?
+  transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])
+
+  @@map("coin_orders")
+}
+
+model EventOrder {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  event_ticket_id String
+  event_ticket    EventTicket @relation(fields: [event_ticket_id], references: [id])
+
+  amount   Int
+  quantity Int    @default(1)
+  status   String @default("pending")
+
+  transaction_id String?
+  transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])
+
+  @@map("event_orders")
 }
 
 // this table stores example

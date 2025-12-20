@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { CoinService } from './coin.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
@@ -14,8 +14,13 @@ import { Role } from 'src/common/guard/role/role.enum';
 export class CoinController {
   constructor(private readonly coinService: CoinService) {}
 
-  @Get()
+  @Get('all')
   getAllCoinBundle() {
     return this.coinService.findAllCoinBundle();
+  }
+
+  @Get('bundle/:id')
+  getCoinBundleById(@Param('id') id: string) {
+    return this.coinService.findCoinBundleById(id);
   }
 }
