@@ -7,6 +7,9 @@ import {
   Param,
   Delete,
   UseGuards,
+  Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { CoinService } from './coin.service';
 import { CreateCoinDto } from './dto/create-coin.dto';
@@ -16,6 +19,8 @@ import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guard/role/roles.guard';
 import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
@@ -26,8 +31,18 @@ export class CoinController {
   constructor(private readonly coinService: CoinService) {}
 
   @Post()
-  createCoinBundle(@Body() createCoinDto: CreateCoinDto) {
-    return this.coinService.createCoinBundle(createCoinDto);
+  @UseInterceptors(
+    FileInterceptor('thumbnail', {
+      storage: memoryStorage(),
+    }),
+  )
+  createCoinBundle(
+    @Req() req: any,
+    @Body() createCoinDto: CreateCoinDto,
+    @UploadedFile() thumbnail: Express.Multer.File,
+  ) {
+    const userId = req.user.userId;
+    return this.coinService.createCoinBundle(userId, createCoinDto, thumbnail);
   }
 
   @Get()
