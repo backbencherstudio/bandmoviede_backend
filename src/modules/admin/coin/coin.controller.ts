@@ -10,6 +10,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { CoinService } from './coin.service';
 import { CreateCoinDto } from './dto/create-coin.dto';
@@ -22,6 +23,7 @@ import { Role } from 'src/common/guard/role/role.enum';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Request } from 'express';
+import { FindAllQueryDto } from './dto/query-coin.dto';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
@@ -47,8 +49,8 @@ export class CoinController {
   }
 
   @Get()
-  findAll() {
-    return this.coinService.findAll();
+  findAll(@Query() query: FindAllQueryDto) {
+    return this.coinService.findAll(query);
   }
 
   @Get(':id')

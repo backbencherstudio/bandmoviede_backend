@@ -5,6 +5,8 @@ import { UpdateCoinDto } from './dto/update-coin.dto';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { FindAllQueryDto } from './dto/query-coin.dto';
+import { Prisma } from 'prisma/generated/client';
 
 @Injectable()
 export class CoinService {
@@ -42,8 +44,42 @@ export class CoinService {
     };
   }
 
-  findAll() {
-    return this.prisma.coinBundle.findMany();
+  async findAll(query: FindAllQueryDto) {
+    const { search, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+    const take = limit;
+    const where: Prisma.CoinBundleWhereInput = {};
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: 'insensitive',
+      };
+      if (search === 'active') {
+        where.status = 'Active';
+      } else if (search === 'inactive') {
+        where.status = 'Inactive';
+      }
+      // if(Number(search)){
+      //   where.OR={
+      //     price:{
+
+      //     }
+      //   };
+      // }
+    }
+
+    const data = await this.prisma.coinBundle.findMany({
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        coin_amount: true,
+        total_sold: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
   }
 
   findOne(id: string) {

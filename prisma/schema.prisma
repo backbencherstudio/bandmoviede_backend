@@ -443,7 +443,7 @@ model CoinBundle {
   thumbnail   String?
   status      BundleStatus @default(Active)
   user_id     String?
-  user        User?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@index([user_id])
   @@index([status])
@@ -453,23 +453,32 @@ model CoinBundle {
 }
 
 model EventTicket {
-  id           String       @id @default(cuid())
-  created_at   DateTime     @default(now())
-  updated_at   DateTime     @default(now())
-  deleted_at   DateTime?
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
   title        String
   description  String?
+  about        String?
+  include      String[]     @default([])
   event_date   DateTime
   location     String?
-  revenue      Int
-  ticket_price Int
-  total_sold   Int?
+  revenue      Int          @default(0)
+  ticket_price Int          @default(0)
+  total_sold   Int          @default(0)
   sold_limit   Int?
   thumbnail    String?
   status       BundleStatus @default(Active)
-  user_id      String?
-  user         User?        @relation(fields: [user_id], references: [id])
+  user_id      String? //event ticket creator id
+  user         User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([deleted_at])
+  @@index([event_date])
+  @@index([location])
   @@map("event_tickets")
 }
 
