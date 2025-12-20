@@ -48,7 +48,7 @@ export class CoinController {
     return this.coinService.create(userId, createCoinDto, thumbnail);
   }
 
-  @Get()
+  @Get('all')
   findAll(@Query() query: FindAllQueryDto) {
     return this.coinService.findAll(query);
   }

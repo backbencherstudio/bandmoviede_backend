@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Express } from 'express';
@@ -32,11 +32,15 @@ export class TicketService {
     let fileName: string | null = null;
 
     if (thumbnail) {
-      fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
-      await SojebStorage.put(
-        appConfig().storageUrl.ticketThumbnails + fileName,
-        thumbnail.buffer,
-      );
+      try {
+        fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.ticketThumbnails + fileName,
+          thumbnail.buffer,
+        );
+      } catch (error) {
+        throw new InternalServerErrorException('Failed to upload thumbnail');
+      }
     }
 
     const ticket = await this.prisma.eventTicket.create({
@@ -67,6 +71,9 @@ export class TicketService {
         thumbnail: true,
       },
     });
+    if (!ticket) {
+      throw new InternalServerErrorException('Failed to create ticket');
+    }
     return {
       success: true,
       message: 'Ticket created successfully',
@@ -180,11 +187,15 @@ export class TicketService {
     let fileName: string | null = null;
 
     if (thumbnail) {
-      fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
-      await SojebStorage.put(
-        appConfig().storageUrl.ticketThumbnails + fileName,
-        thumbnail.buffer,
-      );
+      try {
+        fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.ticketThumbnails + fileName,
+          thumbnail.buffer,
+        );
+      } catch (error) {
+        throw new InternalServerErrorException('Failed to upload thumbnail');
+      }
     }
 
     const ticket = await this.prisma.eventTicket.update({
@@ -211,6 +222,9 @@ export class TicketService {
         created_at: true,
       },
     });
+    if (!ticket) {
+      throw new InternalServerErrorException('Failed to update ticket');
+    }
     return {
       success: true,
       message: 'Ticket updated successfully',
@@ -226,6 +240,10 @@ export class TicketService {
   }
 
   async remove(id: string) {
+    const ticket = await this.prisma.eventTicket.findUnique({ where: { id } });
+    if (!ticket) {
+      throw new InternalServerErrorException('Ticket not found');
+    }
     await this.prisma.eventTicket.delete({ where: { id } });
     return {
       success: true,
