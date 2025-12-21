@@ -148,6 +148,9 @@ export class CoinService {
   }
 
   async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const coinBundle = await this.prisma.coinBundle.findUnique({
       where: { id },
       select: {
@@ -186,6 +189,9 @@ export class CoinService {
     updateCoinDto: UpdateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const { is_active = true, ...rest } = updateCoinDto;
 
     const existing = await this.prisma.coinBundle.findUnique({
@@ -247,6 +253,9 @@ export class CoinService {
   }
 
   async remove(id: string) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const existing = await this.prisma.coinBundle.findUnique({
       where: { id },
     });

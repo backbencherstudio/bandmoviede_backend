@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
@@ -68,6 +68,9 @@ export class TicketService {
   }
 
   async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('Ticket id is required');
+    }
     const ticket = await this.prisma.eventTicket.findUnique({
       where: {
         id,

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
@@ -67,6 +67,9 @@ export class CoinService {
   }
 
   async findCoinBundleById(id: string) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const coinBundle = await this.prisma.coinBundle.findUnique({
       where: {
         id: id,

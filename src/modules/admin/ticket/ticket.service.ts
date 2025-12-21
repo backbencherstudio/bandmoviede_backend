@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -149,6 +150,9 @@ export class TicketService {
   }
 
   async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('Ticket id is required');
+    }
     const ticket = await this.prisma.eventTicket.findUnique({
       where: { id },
       select: {
@@ -190,6 +194,9 @@ export class TicketService {
     updateTicketDto: UpdateTicketDto,
     thumbnail?: Express.Multer.File,
   ) {
+    if (!id) {
+      throw new BadRequestException('Ticket id is required');
+    }
     const { is_active = true, ...rest } = updateTicketDto;
     let fileName: string | null = null;
 
@@ -247,6 +254,9 @@ export class TicketService {
   }
 
   async remove(id: string) {
+    if (!id) {
+      throw new BadRequestException('Ticket id is required');
+    }
     const ticket = await this.prisma.eventTicket.findUnique({ where: { id } });
     if (!ticket) {
       throw new InternalServerErrorException('Ticket not found');

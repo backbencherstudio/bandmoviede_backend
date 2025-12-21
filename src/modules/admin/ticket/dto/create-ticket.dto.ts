@@ -1,3 +1,4 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -27,6 +28,7 @@ export class CreateTicketDto {
   included?: string[];
 
   @IsNotEmpty()
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   ticket_price: number;
 
@@ -35,10 +37,12 @@ export class CreateTicketDto {
   is_active: boolean = true;
 
   @IsNotEmpty()
+  @Transform(({ value }) => Number(value))
   @IsNumber()
   sold_limit: number;
 
   @IsNotEmpty()
+  @Type(() => Date)
   @IsDate()
   event_date: Date;
 
