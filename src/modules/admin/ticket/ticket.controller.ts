@@ -48,7 +48,7 @@ export class TicketController {
     return this.ticketService.create(createTicketDto, userId, thumbnail);
   }
 
-  @Get()
+  @Get('all')
   findAll(@Query() query: FindAllQueryDto) {
     return this.ticketService.findAll(query);
   }

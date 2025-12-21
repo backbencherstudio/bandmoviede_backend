@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { Express } from 'express';
@@ -164,6 +168,9 @@ export class TicketService {
         created_at: true,
       },
     });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
     return {
       success: true,
       message: 'Ticket fetched successfully',
