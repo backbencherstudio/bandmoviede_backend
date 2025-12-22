@@ -34,19 +34,6 @@ export class CoinService {
       this.prisma.coinBundle.count(),
     ]);
 
-    if (!coinBundles) {
-      return {
-        success: false,
-        message: 'Coin bundle not found',
-        data: null,
-        meta_data: {
-          total: 0,
-          page: query.page,
-          limit: query.limit,
-        },
-      };
-    }
-
     const data = coinBundles.map((bundle) => {
       return {
         ...bundle,
@@ -59,11 +46,14 @@ export class CoinService {
     });
 
     return {
-      success: true,
-      message: 'Coin bundle retrieved successfully',
+      success: coinBundles.length > 0 ? true : false,
+      message:
+        coinBundles.length > 0
+          ? 'Coin bundle retrieved successfully'
+          : 'No coin bundle found',
       data: data,
       meta_data: {
-        total: total,
+        total: total || 0,
         page: query.page,
         limit: query.limit,
       },

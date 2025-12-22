@@ -138,8 +138,9 @@ export class TicketService {
       this.prisma.eventTicket.count({ where }),
     ]);
     return {
-      success: true,
-      message: 'Tickets fetched successfully',
+      success: data.length > 0 ? true : false,
+      message:
+        data.length > 0 ? 'Tickets fetched successfully' : 'No tickets found',
       data,
       meta_data: {
         page,

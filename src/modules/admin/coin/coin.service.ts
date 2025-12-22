@@ -136,8 +136,11 @@ export class CoinService {
       this.prisma.coinBundle.count({ where }),
     ]);
     return {
-      success: true,
-      message: 'Coin bundles fetched successfully',
+      success: data.length > 0 ? true : false,
+      message:
+        data.length > 0
+          ? 'Coin bundles fetched successfully'
+          : 'No coin bundles found',
       data,
       meta_data: {
         page,
