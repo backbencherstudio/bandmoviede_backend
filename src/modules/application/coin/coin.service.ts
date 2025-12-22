@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
@@ -85,10 +89,7 @@ export class CoinService {
     });
 
     if (!coinBundle) {
-      return {
-        success: false,
-        message: 'Coin bundle not found',
-      };
+      throw new NotFoundException('Coin bundle not found');
     }
 
     const thumbnail_url = coinBundle.thumbnail
