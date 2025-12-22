@@ -9,6 +9,7 @@ import appConfig from 'src/config/app.config';
 import { FindAllQueryDto } from './dto/query-coin.dto';
 import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
+import { StringHelper } from 'src/common/helper/string.helper';
 
 @Injectable()
 export class CoinService {
@@ -100,7 +101,7 @@ export class CoinService {
     };
   }
 
-  async createCoinOrder(userId: string, bundleId: string) {
+  async createCoinOrder(userId: string, bundleId: string, sugo_id: string, quantity?: number) {
     try {
       const coinBundle = await this.prisma.coinBundle.findUnique({
         where: {
@@ -150,7 +151,7 @@ export class CoinService {
 
       // Create payment intent
       const paymentIntent = await StripePayment.createPaymentIntent({
-        amount: coinBundle.price,
+        amount: coinBundle.price * (quantity || 1),
         currency: 'usd',
         customer_id: stripeCustomerId,
         metadata: {
@@ -164,7 +165,7 @@ export class CoinService {
       const transaction = await this.transactionRepository.createTransaction({
         order_id: null, // Will update later or keep null as it's not a generic order yet? 
         // actually for now I will pass null and link it in CoinOrder
-        amount: coinBundle.price,
+        amount: coinBundle.price * (quantity || 1),
         currency: 'usd',
         reference_number: paymentIntent.id,
         status: 'pending',
@@ -176,9 +177,11 @@ export class CoinService {
         data: {
           user_id: userId,
           coin_bundle_id: bundleId,
-          amount: coinBundle.price,
+          amount: coinBundle.price * (quantity || 1),
+          quantity: quantity || 1,
           status: 'pending',
           transaction_id: transaction.id,
+          sugo_id: sugo_id,
         },
       });
 

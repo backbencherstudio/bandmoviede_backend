@@ -6,13 +6,14 @@ import { RolesGuard } from 'src/common/guard/role/roles.guard';
 import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
 import { FindAllQueryDto } from './dto/query-coin.dto';
+import { CreateOrderDto } from './dto/create-order.dto';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
 @UseGuards(JwtAuthGuard)
 @Controller('coin')
 export class CoinController {
-  constructor(private readonly coinService: CoinService) {}
+  constructor(private readonly coinService: CoinService) { }
 
   @Get('all')
   getAllCoinBundle(@Query() query: FindAllQueryDto) {
@@ -25,7 +26,7 @@ export class CoinController {
   }
 
   @Post('order')
-  createCoinOrder(@Body() body: { bundle_id: string }, @Req() req: any) {
-    return this.coinService.createCoinOrder(req.user.sub, body.bundle_id);
+  createCoinOrder(@Body() body: CreateOrderDto, @Req() req: any) {
+    return this.coinService.createCoinOrder(req.user.userId, body.bundle_id, body.sugo_id, body.quantity || 1);
   }
 }
