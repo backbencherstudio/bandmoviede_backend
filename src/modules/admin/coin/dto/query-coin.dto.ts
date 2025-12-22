@@ -7,12 +7,12 @@ export class FindAllQueryDto {
   search: string;
 
   @IsOptional()
-  @Transform(({ value }) => Number(value))
+  @Transform(({ value }) => (value ? Number(value) : 1))
   @IsNumber()
   page: number;
 
   @IsOptional()
-  @Transform(({ value }) => Number(value))
+  @Transform(({ value }) => (value ? Number(value) : 10))
   @IsNumber()
   limit: number;
 }
