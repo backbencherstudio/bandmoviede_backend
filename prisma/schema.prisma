@@ -498,6 +498,8 @@ model CoinOrder {
   user_id String
   user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  sugo_id String
+
   coin_bundle_id String
   coin_bundle    CoinBundle @relation(fields: [coin_bundle_id], references: [id])
 
@@ -522,9 +524,8 @@ model EventOrder {
   event_ticket_id String
   event_ticket    EventTicket @relation(fields: [event_ticket_id], references: [id])
 
-  amount   Int
-  quantity Int    @default(1)
-  status   String @default("pending")
+  amount Int
+  status String @default("pending")
 
   transaction_id String?
   transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])

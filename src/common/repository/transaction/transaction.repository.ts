@@ -9,21 +9,23 @@ export class TransactionRepository {
    * @returns
    */
   async createTransaction({
-    booking_id,
+    order_id,
     amount,
     currency,
     reference_number,
     status = 'pending',
+    type = 'order',
   }: {
-    booking_id: string;
+    order_id?: string;
     amount?: number;
     currency?: string;
     reference_number?: string;
     status?: string;
+    type?: string;
   }) {
     const data = {};
-    if (booking_id) {
-      data['booking_id'] = booking_id;
+    if (order_id) {
+      data['order_id'] = order_id;
     }
     if (amount) {
       data['amount'] = Number(amount);
@@ -36,6 +38,9 @@ export class TransactionRepository {
     }
     if (status) {
       data['status'] = status;
+    }
+    if (type) {
+      data['type'] = type;
     }
     return await this.prisma.paymentTransaction.create({
       data: {

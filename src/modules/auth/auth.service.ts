@@ -25,7 +25,7 @@ export class AuthService {
     private userRepository: UserRepository,
     private ucodeRepository: UcodeRepository,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
   async me(userId: string) {
     try {
@@ -329,15 +329,11 @@ export class AuthService {
 
   async register({
     name,
-    first_name,
-    last_name,
     email,
     password,
     type,
   }: {
     name: string;
-    first_name: string;
-    last_name: string;
     email: string;
     password: string;
     type?: string;
@@ -358,8 +354,6 @@ export class AuthService {
 
       const user = await this.userRepository.createUser({
         name: name,
-        first_name: first_name,
-        last_name: last_name,
         email: email,
         password: password,
         type: type,
