@@ -1,5 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service'; // Assuming PrismaService is in src/prisma/prisma.service
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateCoinDto } from './dto/create-coin.dto';
 import { UpdateCoinDto } from './dto/update-coin.dto';
 import { StringHelper } from 'src/common/helper/string.helper';
@@ -18,15 +23,28 @@ export class CoinService {
     thumbnail?: Express.Multer.File,
   ) {
     const { price, coin_amount, is_active = true } = createCoinDto;
-    // Generate a random 8-character string for name
+
+    if (price <= 0) {
+      throw new BadRequestException('Price must be greater than or equal to 0');
+    }
+    if (coin_amount <= 0) {
+      throw new BadRequestException(
+        'Coin amount must be greater than or equal to 0',
+      );
+    }
     const name = StringHelper.randomString(8).toUpperCase();
     let fileName: string | null = null;
+
     if (thumbnail) {
-      fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
-      await SojebStorage.put(
-        appConfig().storageUrl.coinThumbnails + fileName,
-        thumbnail.buffer,
-      );
+      try {
+        fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.coinThumbnails + fileName,
+          thumbnail.buffer,
+        );
+      } catch {
+        throw new InternalServerErrorException('Failed to upload thumbnail');
+      }
     }
 
     const coinBundle = await this.prisma.coinBundle.create({
@@ -36,7 +54,7 @@ export class CoinService {
         coin_amount,
         user_id: userId,
         status: is_active ? 'Active' : 'Inactive',
-        ...(thumbnail && fileName ? { thumbnail: fileName } : {}),
+        ...(fileName ? { thumbnail: fileName } : {}),
       },
       select: {
         id: true,
@@ -49,13 +67,16 @@ export class CoinService {
         thumbnail: true,
       },
     });
+
     return {
       success: true,
       message: 'Coin bundle created successfully',
       data: {
         ...coinBundle,
-        thumbnail: thumbnail
-          ? SojebStorage.url(appConfig().storageUrl.coinThumbnails + fileName)
+        thumbnail: coinBundle.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+            )
           : null,
       },
     };
@@ -115,8 +136,11 @@ export class CoinService {
       this.prisma.coinBundle.count({ where }),
     ]);
     return {
-      success: true,
-      message: 'Coin bundles fetched successfully',
+      success: data.length > 0 ? true : false,
+      message:
+        data.length > 0
+          ? 'Coin bundles fetched successfully'
+          : 'No coin bundles found',
       data,
       meta_data: {
         page,
@@ -127,6 +151,9 @@ export class CoinService {
   }
 
   async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const coinBundle = await this.prisma.coinBundle.findUnique({
       where: { id },
       select: {
@@ -141,10 +168,15 @@ export class CoinService {
         thumbnail: true,
       },
     });
+
+    if (!coinBundle) {
+      throw new NotFoundException('Coin bundle not found');
+    }
+
     return {
       success: true,
       message: 'Coin bundle fetched successfully',
-      data: {
+      data: coinBundle && {
         ...coinBundle,
         thumbnail: coinBundle?.thumbnail
           ? SojebStorage.url(
@@ -160,14 +192,34 @@ export class CoinService {
     updateCoinDto: UpdateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const { is_active = true, ...rest } = updateCoinDto;
+
+    const existing = await this.prisma.coinBundle.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Coin bundle not found');
+    }
+
+    if (rest.price !== undefined && rest.price <= 0) {
+      throw new BadRequestException('Price must be greater than or equal to 0');
+    }
+
     let fileName: string | null = null;
     if (thumbnail) {
-      fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
-      await SojebStorage.put(
-        appConfig().storageUrl.coinThumbnails + fileName,
-        thumbnail.buffer,
-      );
+      try {
+        fileName = `${StringHelper.randomString()}${thumbnail.originalname}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.coinThumbnails + fileName,
+          thumbnail.buffer,
+        );
+      } catch {
+        throw new InternalServerErrorException('Thumbnail upload failed');
+      }
     }
 
     const coinBundle = await this.prisma.coinBundle.update({
@@ -175,7 +227,7 @@ export class CoinService {
       data: {
         ...rest,
         status: is_active ? 'Active' : 'Inactive',
-        ...(thumbnail && fileName ? { thumbnail: fileName } : {}),
+        ...(fileName ? { thumbnail: fileName } : {}),
       },
       select: {
         id: true,
@@ -188,12 +240,13 @@ export class CoinService {
         thumbnail: true,
       },
     });
+
     return {
       success: true,
       message: 'Coin bundle updated successfully',
       data: {
         ...coinBundle,
-        thumbnail: coinBundle?.thumbnail
+        thumbnail: coinBundle.thumbnail
           ? SojebStorage.url(
               appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
             )
@@ -203,6 +256,16 @@ export class CoinService {
   }
 
   async remove(id: string) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
+    const existing = await this.prisma.coinBundle.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Coin bundle not found');
+    }
     await this.prisma.coinBundle.delete({ where: { id } });
     return {
       success: true,

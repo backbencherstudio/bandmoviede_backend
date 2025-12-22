@@ -1,5 +1,8 @@
-
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
@@ -12,7 +15,7 @@ export class CoinService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly transactionRepository: TransactionRepository,
-  ) {}
+  ) { }
 
   async findAllCoinBundle(query: FindAllQueryDto) {
     const [coinBundles, total] = await Promise.all([
@@ -36,36 +39,26 @@ export class CoinService {
       this.prisma.coinBundle.count(),
     ]);
 
-    if (!coinBundles) {
-      return {
-        success: false,
-        message: 'Coin bundle not found',
-        data: null,
-        meta_data: {
-          total: 0,
-          page: query.page,
-          limit: query.limit,
-        },
-      };
-    }
-
     const data = coinBundles.map((bundle) => {
       return {
         ...bundle,
         thumbnail_url: bundle.thumbnail
           ? SojebStorage.url(
-              appConfig().storageUrl.coinThumbnails + bundle.thumbnail,
-            )
+            appConfig().storageUrl.coinThumbnails + bundle.thumbnail,
+          )
           : null,
       };
     });
 
     return {
-      success: true,
-      message: 'Coin bundle retrieved successfully',
+      success: coinBundles.length > 0 ? true : false,
+      message:
+        coinBundles.length > 0
+          ? 'Coin bundle retrieved successfully'
+          : 'No coin bundle found',
       data: data,
       meta_data: {
-        total: total,
+        total: total || 0,
         page: query.page,
         limit: query.limit,
       },
@@ -73,6 +66,9 @@ export class CoinService {
   }
 
   async findCoinBundleById(id: string) {
+    if (!id) {
+      throw new BadRequestException('Coin bundle id is required');
+    }
     const coinBundle = await this.prisma.coinBundle.findUnique({
       where: {
         id: id,
@@ -88,16 +84,13 @@ export class CoinService {
     });
 
     if (!coinBundle) {
-      return {
-        success: false,
-        message: 'Coin bundle not found',
-      };
+      throw new NotFoundException('Coin bundle not found');
     }
 
     const thumbnail_url = coinBundle.thumbnail
       ? SojebStorage.url(
-          appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-        )
+        appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+      )
       : null;
 
     return {
@@ -189,17 +182,17 @@ export class CoinService {
         },
       });
 
-       // Update transaction with coin order id if needed, but the schema has transaction_id in CoinOrder, 
-       // and PaymentTransaction has coinOrders relation. So we are good.
-       // However, my updated Repository has 'order_id' which is a string field in PaymentTransaction.
-       // I can put coinOrder.id there if I want validation.
-       // But I will skip that circular update for now to keep it simple, as the relation is established via `transaction_id` in CoinOrder.
-       
+      // Update transaction with coin order id if needed, but the schema has transaction_id in CoinOrder, 
+      // and PaymentTransaction has coinOrders relation. So we are good.
+      // However, my updated Repository has 'order_id' which is a string field in PaymentTransaction.
+      // I can put coinOrder.id there if I want validation.
+      // But I will skip that circular update for now to keep it simple, as the relation is established via `transaction_id` in CoinOrder.
+
       return {
         success: true,
         data: {
-           client_secret: paymentIntent.client_secret,
-           order_id: coinOrder.id
+          client_secret: paymentIntent.client_secret,
+          order_id: coinOrder.id
         },
       };
 

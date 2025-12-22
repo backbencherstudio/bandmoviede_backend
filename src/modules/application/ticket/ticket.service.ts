@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
@@ -49,8 +53,9 @@ export class TicketService {
       }),
     ]);
     return {
-      success: true,
-      message: 'Tickets fetched successfully',
+      success: data.length > 0 ? true : false,
+      message:
+        data.length > 0 ? 'Tickets fetched successfully' : 'No tickets found',
       data: data.map((ticket) => ({
         ...ticket,
         thumbnail: ticket?.thumbnail
@@ -68,6 +73,9 @@ export class TicketService {
   }
 
   async findOne(id: string) {
+    if (!id) {
+      throw new BadRequestException('Ticket id is required');
+    }
     const ticket = await this.prisma.eventTicket.findUnique({
       where: {
         id,
@@ -89,6 +97,9 @@ export class TicketService {
         created_at: true,
       },
     });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
     return {
       success: true,
       message: 'Ticket fetched successfully',
