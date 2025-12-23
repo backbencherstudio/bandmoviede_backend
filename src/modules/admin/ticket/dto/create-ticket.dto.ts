@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
+import { TicketStatus } from 'prisma/generated/enums';
 
 export class CreateTicketDto {
   @IsNotEmpty()
@@ -17,6 +18,10 @@ export class CreateTicketDto {
   @IsNotEmpty()
   @IsString()
   description: string;
+
+  @IsNotEmpty()
+  @IsString()
+  ticket_status: TicketStatus;
 
   @IsString()
   @IsOptional()

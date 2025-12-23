@@ -10,7 +10,7 @@ export class StripeController {
     private readonly stripeService: StripeService,
     private transactionRepository: TransactionRepository,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   @Post('webhook')
   async handleWebhook(
@@ -50,6 +50,42 @@ export class StripeController {
               },
               data: {
                 status: 'completed',
+              },
+            });
+          } else if (paymentIntent.metadata['type'] === 'ticket_order') {
+            // Generate ticket code
+            const year = new Date().getFullYear();
+            let ticketCode = '';
+            let isUnique = false;
+
+            while (!isUnique) {
+              const randomString = Array(6)
+                .fill(null)
+                .map(() => Math.floor(Math.random() * 36).toString(36))
+                .join('')
+                .toUpperCase();
+              ticketCode = `TKT-SC${year}-${randomString}`;
+
+              const existingTicket = await this.prisma.eventOrder.findFirst({
+                where: {
+                  ticket_code: ticketCode,
+                },
+              });
+
+              if (!existingTicket) {
+                isUnique = true;
+              }
+            }
+
+            await this.prisma.eventOrder.updateMany({
+              where: {
+                transaction: {
+                  reference_number: paymentIntent.id,
+                },
+              },
+              data: {
+                status: 'completed',
+                ticket_code: ticketCode,
               },
             });
           }
