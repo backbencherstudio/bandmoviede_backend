@@ -13,10 +13,15 @@ import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
 import { Prisma } from 'prisma/generated/client';
+import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
+import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 
 @Injectable()
 export class TicketService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly transactionRepository: TransactionRepository,
+  ) { }
   async create(
     createTicketDto: CreateTicketDto,
     userId: string,
@@ -86,8 +91,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-            )
+            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+          )
           : null,
       },
     };
@@ -183,8 +188,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-            )
+            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+          )
           : null,
       },
     };
@@ -247,8 +252,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-            )
+            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+          )
           : null,
       },
     };
@@ -267,5 +272,104 @@ export class TicketService {
       success: true,
       message: 'Ticket deleted successfully',
     };
+  }
+
+  async createTicketOrder(userId: string, ticketId: string) {
+    try {
+      const ticket = await this.prisma.eventTicket.findUnique({
+        where: {
+          id: ticketId,
+          status: 'Active',
+        },
+      });
+
+      if (!ticket) {
+        return {
+          success: false,
+          message: 'Ticket not found or inactive',
+        };
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!user) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      // Check if user has stripe customer id
+      let stripeCustomerId = user.billing_id;
+      if (!stripeCustomerId) {
+        const customer = await StripePayment.createCustomer({
+          user_id: user.id,
+          name: user.name,
+          email: user.email,
+        });
+        stripeCustomerId = customer.id;
+
+        await this.prisma.user.update({
+          where: {
+            id: user.id,
+          },
+          data: {
+            billing_id: stripeCustomerId,
+          },
+        });
+      }
+
+      // Create payment intent
+      const paymentIntent = await StripePayment.createPaymentIntent({
+        amount: ticket.ticket_price,
+        currency: 'usd',
+        customer_id: stripeCustomerId,
+        metadata: {
+          type: 'ticket_order',
+          user_id: userId,
+          ticket_id: ticketId,
+        },
+      });
+
+      // Create transaction
+      const transaction = await this.transactionRepository.createTransaction({
+        order_id: null,
+        amount: ticket.ticket_price,
+        currency: 'usd',
+        reference_number: paymentIntent.id,
+        status: 'pending',
+        type: 'ticket_order',
+      });
+
+      // Create ticket order
+      const ticketOrder = await this.prisma.eventOrder.create({
+        data: {
+          user_id: userId,
+          event_ticket_id: ticketId,
+          amount: ticket.ticket_price,
+          status: 'pending',
+          transaction_id: transaction.id,
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          client_secret: paymentIntent.client_secret,
+          order_id: ticketOrder.id,
+        },
+      };
+
+    } catch (error) {
+      console.log(error);
+      return {
+        success: false,
+        message: 'Failed to create ticket order',
+      };
+    }
   }
 }
