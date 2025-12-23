@@ -31,7 +31,7 @@ import { FindAllQueryDto } from './dto/query-ticket.dto';
 @Roles(Role.ADMIN)
 @Controller('admin/ticket')
 export class TicketController {
-  constructor(private readonly ticketService: TicketService) {}
+  constructor(private readonly ticketService: TicketService) { }
 
   @Post()
   @UseInterceptors(
@@ -75,5 +75,11 @@ export class TicketController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ticketService.remove(id);
+  }
+
+  @Post('order')
+  createTicketOrder(@Body() body: { ticketId: string }, @Req() req: Request) {
+    const userId = req.user.userId;
+    return this.ticketService.createTicketOrder(userId, body.ticketId);
   }
 }
