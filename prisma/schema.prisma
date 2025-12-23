@@ -459,27 +459,32 @@ model CoinBundle {
   @@map("coin_bundles")
 }
 
-model EventTicket {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
+enum TicketStatus {
+  VIP
+  General
+}
 
-  title        String
-  description  String?
-  about        String?
-  included     String[]     @default([])
-  event_date   DateTime
-  location     String?
-  revenue      Int?         @default(0)
-  ticket_price Int          @default(0)
-  total_sold   Int?         @default(0)
-  sold_limit   Int?
-  thumbnail    String?
-  status       BundleStatus @default(Active)
-  user_id      String?
-  user         User?        @relation(fields: [user_id], references: [id])
-  eventOrders  EventOrder[]
+model EventTicket {
+  id            String       @id @default(cuid())
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @default(now())
+  deleted_at    DateTime?
+  title         String
+  description   String?
+  about         String?
+  ticket_status TicketStatus @default(General)
+  included      String[]     @default([])
+  event_date    DateTime
+  location      String?
+  revenue       Int?         @default(0)
+  ticket_price  Int          @default(0)
+  total_sold    Int?         @default(0)
+  sold_limit    Int?
+  thumbnail     String?
+  status        BundleStatus @default(Active)
+  user_id       String?
+  user          User?        @relation(fields: [user_id], references: [id])
+  eventOrders   EventOrder[]
 
   @@index([user_id])
   @@index([status])
@@ -521,6 +526,7 @@ model EventOrder {
   user_id String
   user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  ticket_code     String?
   event_ticket_id String
   event_ticket    EventTicket @relation(fields: [event_ticket_id], references: [id])
 

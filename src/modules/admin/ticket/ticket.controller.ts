@@ -77,9 +77,4 @@ export class TicketController {
     return this.ticketService.remove(id);
   }
 
-  @Post('order')
-  createTicketOrder(@Body() body: { ticketId: string }, @Req() req: Request) {
-    const userId = req.user.userId;
-    return this.ticketService.createTicketOrder(userId, body.ticketId);
-  }
 }

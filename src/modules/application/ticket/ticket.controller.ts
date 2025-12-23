@@ -7,20 +7,26 @@ import {
   Param,
   Delete,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 
+
+
+@ApiBearerAuth()
+@ApiTags('Ticket')
+@UseGuards(JwtAuthGuard)
 @Controller('ticket')
 export class TicketController {
-  constructor(private readonly ticketService: TicketService) {}
+  constructor(private readonly ticketService: TicketService) { }
 
-  // @Post()
-  // create(@Body() createTicketDto: CreateTicketDto) {
-  //   return this.ticketService.create(createTicketDto);
-  // }
+
 
   @Get('all')
   findAll(@Query() query: FindAllQueryDto) {
@@ -32,13 +38,12 @@ export class TicketController {
     return this.ticketService.findOne(id);
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateTicketDto: UpdateTicketDto) {
-  //   return this.ticketService.update(+id, updateTicketDto);
-  // }
 
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.ticketService.remove(+id);
-  // }
+
+  // create ticket order
+  @Post('order')
+  createTicketOrder(@Body() body: { ticket_id: string }, @Req() req: any) {
+    const userId = req.user.userId;
+    return this.ticketService.createTicketOrder(userId, body.ticket_id);
+  }
 }
