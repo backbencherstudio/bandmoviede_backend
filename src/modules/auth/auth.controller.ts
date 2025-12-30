@@ -28,7 +28,7 @@ import { AuthGuard } from '@nestjs/passport';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService) {}
 
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
@@ -63,6 +63,9 @@ export class AuthController {
 
       if (!email) {
         throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
+      }
+      if (!RegExp(/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})$/).test(email)) {
+        throw new HttpException('Invalid email', HttpStatus.UNAUTHORIZED);
       }
       if (!password) {
         throw new HttpException(
