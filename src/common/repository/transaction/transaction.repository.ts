@@ -8,21 +8,24 @@ export class TransactionRepository {
    * Create transaction
    * @returns
    */
-  async createTransaction({
-    order_id,
-    amount,
-    currency,
-    reference_number,
-    status = 'pending',
-    type = 'order',
-  }: {
-    order_id?: string;
-    amount?: number;
-    currency?: string;
-    reference_number?: string;
-    status?: string;
-    type?: string;
-  }) {
+  async createTransaction(
+    {
+      order_id,
+      amount,
+      currency,
+      reference_number,
+      status = 'pending',
+      type = 'order',
+    }: {
+      order_id?: string;
+      amount?: number;
+      currency?: string;
+      reference_number?: string;
+      status?: string;
+      type?: string;
+    },
+    prismaClient: any = null,
+  ) {
     const data = {};
     if (order_id) {
       data['order_id'] = order_id;
@@ -42,7 +45,10 @@ export class TransactionRepository {
     if (type) {
       data['type'] = type;
     }
-    return await this.prisma.paymentTransaction.create({
+
+    const client = prismaClient || this.prisma;
+
+    return await client.paymentTransaction.create({
       data: {
         ...data,
       },

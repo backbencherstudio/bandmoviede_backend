@@ -10,7 +10,7 @@ export class StripeController {
     private readonly stripeService: StripeService,
     private transactionRepository: TransactionRepository,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   @Post('webhook')
   async handleWebhook(
@@ -42,6 +42,17 @@ export class StripeController {
           });
 
           if (paymentIntent.metadata['type'] === 'coin_order') {
+            await this.prisma.coinOrder.updateMany({
+              where: {
+                transaction: {
+                  reference_number: paymentIntent.id,
+                },
+              },
+              data: {
+                status: 'completed',
+              },
+            });
+          } else if (paymentIntent.metadata['type'] === 'coin_checkout') {
             await this.prisma.coinOrder.updateMany({
               where: {
                 transaction: {
@@ -88,6 +99,47 @@ export class StripeController {
                 ticket_code: ticketCode,
               },
             });
+          } else if (paymentIntent.metadata['type'] === 'ticket_checkout') {
+            // Find all orders for this transaction
+            const orders = await this.prisma.eventOrder.findMany({
+              where: {
+                transaction: {
+                  reference_number: paymentIntent.id,
+                },
+              },
+            });
+
+            for (const order of orders) {
+              // Generate unique ticket code for each order
+              const year = new Date().getFullYear();
+              let ticketCode = '';
+              let isUnique = false;
+
+              while (!isUnique) {
+                const randomString = Array(6)
+                  .fill(null)
+                  .map(() => Math.floor(Math.random() * 36).toString(36))
+                  .join('')
+                  .toUpperCase();
+                ticketCode = `TKT-SC${year}-${randomString}`;
+
+                const existingTicket = await this.prisma.eventOrder.findFirst({
+                  where: { ticket_code: ticketCode },
+                });
+
+                if (!existingTicket) {
+                  isUnique = true;
+                }
+              }
+
+              await this.prisma.eventOrder.update({
+                where: { id: order.id },
+                data: {
+                  status: 'completed',
+                  ticket_code: ticketCode,
+                },
+              });
+            }
           }
           break;
         case 'payment_intent.payment_failed':
