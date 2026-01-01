@@ -6,6 +6,11 @@ import {
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
+import { CheckoutTicketDto } from './dto/checkout-ticket.dto';
+import {
+  CreateTicketCheckoutDto,
+  UpdateTicketCheckoutDto,
+} from './dto/ticket-checkout.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import appConfig from 'src/config/app.config';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
@@ -14,7 +19,10 @@ import { TransactionRepository } from 'src/common/repository/transaction/transac
 
 @Injectable()
 export class TicketService {
-  constructor(private prisma: PrismaService, private readonly transactionRepository: TransactionRepository) { }
+  constructor(
+    private prisma: PrismaService,
+    private readonly transactionRepository: TransactionRepository,
+  ) {}
 
   // create(createTicketDto: CreateTicketDto) {
   //   return 'This action adds a new ticket';
@@ -62,8 +70,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-          )
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       })),
       meta_data: {
@@ -107,47 +115,57 @@ export class TicketService {
       message: 'Ticket fetched successfully',
       data: ticket
         ? {
-          ...ticket,
-          thumbnail: ticket?.thumbnail
-            ? SojebStorage.url(
-              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-            )
-            : null,
-        }
+            ...ticket,
+            thumbnail: ticket?.thumbnail
+              ? SojebStorage.url(
+                  appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+                )
+              : null,
+          }
         : null,
     };
   }
 
-  async createTicketOrder(userId: string, ticketId: string) {
+  async checkout(userId: string, body: CheckoutTicketDto) {
     try {
-      const ticket = await this.prisma.eventTicket.findUnique({
-        where: {
-          id: ticketId,
-          status: 'Active',
-        },
-      });
-
-      if (!ticket) {
-        return {
-          success: false,
-          message: 'Ticket not found or inactive',
-        };
+      if (!body.items || body.items.length === 0) {
+        throw new BadRequestException('No tickets provided');
       }
 
-      const user = await this.prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
-      });
+      // 1. Validate all tickets and calculate total amount
+      let totalAmount = 0;
+      const ticketDetails = [];
 
+      for (const item of body.items) {
+        const ticket = await this.prisma.eventTicket.findUnique({
+          where: { id: item.ticket_id, status: 'Active' },
+        });
+
+        if (!ticket) {
+          throw new BadRequestException(
+            `Ticket not found or inactive: ${item.ticket_id}`,
+          );
+        }
+
+        if (
+          ticket.sold_limit &&
+          ticket.total_sold + item.quantity > ticket.sold_limit
+        ) {
+          throw new BadRequestException(
+            `Not enough stock for ticket: ${ticket.title}`,
+          );
+        }
+
+        totalAmount += ticket.ticket_price * item.quantity;
+        ticketDetails.push({ ticket, quantity: item.quantity });
+      }
+
+      // 2. Get User and Stripe Customer
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
-        return {
-          success: false,
-          message: 'User not found',
-        };
+        throw new NotFoundException('User not found');
       }
 
-      // Check if user has stripe customer id
       let stripeCustomerId = user.billing_id;
       if (!stripeCustomerId) {
         const customer = await StripePayment.createCustomer({
@@ -158,70 +176,299 @@ export class TicketService {
         stripeCustomerId = customer.id;
 
         await this.prisma.user.update({
-          where: {
-            id: user.id,
-          },
-          data: {
-            billing_id: stripeCustomerId,
-          },
+          where: { id: user.id },
+          data: { billing_id: stripeCustomerId },
         });
       }
 
-      // Create payment intent
+      // 3. Create Payment Intent
       const paymentIntent = await StripePayment.createPaymentIntent({
-        amount: ticket.ticket_price,
+        amount: totalAmount,
         currency: 'usd',
         customer_id: stripeCustomerId,
         metadata: {
-          type: 'ticket_order',
+          type: 'ticket_checkout',
           user_id: userId,
-          ticket_id: ticketId,
+          ticket_count: body.items.length.toString(),
         },
       });
 
-      // Create transaction
-      const transaction = await this.transactionRepository.createTransaction({
-        order_id: null,
-        amount: ticket.ticket_price,
-        currency: 'usd',
-        reference_number: paymentIntent.id,
-        status: 'pending',
-        type: 'ticket_order',
+      // 4. Create Transaction and Orders in a Prisma Transaction
+      const result = await this.prisma.$transaction(async (prisma) => {
+        // Create Transaction Record
+        const transaction = await this.transactionRepository.createTransaction(
+          {
+            order_id: null, // Will key this manually or leave null as it's multiple orders
+            amount: totalAmount,
+            currency: 'usd',
+            reference_number: paymentIntent.id,
+            status: 'pending',
+            type: 'ticket_checkout',
+          },
+          prisma,
+        ); // Pass prisma transaction client if repository supports it, otherwise generic create
+
+        const createdOrders = [];
+
+        for (const item of ticketDetails) {
+          // Update ticket sold count
+          await prisma.eventTicket.update({
+            where: { id: item.ticket.id },
+            data: { total_sold: { increment: item.quantity } },
+          });
+
+          // Create individual orders for each quantity to allow unique ticket codes later
+          for (let i = 0; i < item.quantity; i++) {
+            const order = await prisma.eventOrder.create({
+              data: {
+                user_id: userId,
+                event_ticket_id: item.ticket.id,
+                amount: item.ticket.ticket_price,
+                status: 'pending',
+                transaction_id: transaction.id,
+              },
+            });
+            createdOrders.push(order);
+          }
+        }
+
+        return { transaction, createdOrders };
       });
 
-      // Create ticket order
-      const ticketOrder = await this.prisma.eventOrder.create({
+      return {
+        success: true,
+        message: 'Ticket checkout successful',
+        // data: {
+        //   client_secret: paymentIntent.client_secret,
+        //   transaction_id: result.transaction.id,
+        //   orders: result.createdOrders.map((o) => o.id),
+        // },
+      };
+    } catch (error) {
+      console.error(error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      return {
+        success: false,
+        message: 'Failed to process checkout',
+      };
+    }
+  }
+
+  async createTicketOrder(userId: string, ticketId: string) {
+    try {
+      const result = await this.checkout(userId, {
+        items: [{ ticket_id: ticketId, quantity: 1 }],
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Adapt response to match old format
+      return {
+        success: true,
+        message: 'Ticket order created successfully',
+        // data: {
+        //   client_secret: result.data.client_secret,
+        //   order_id: result.data.orders[0],
+        // },
+      };
+    } catch (error) {
+      console.error(error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      return {
+        success: false,
+        message: 'Failed to process checkout',
+      };
+    }
+  }
+
+  // --- Draft CRUD ---
+
+  async createCheckoutDraft(userId: string, body: CreateTicketCheckoutDto) {
+    try {
+      // Validate tickets exist
+      for (const item of body.items) {
+        const ticket = await this.prisma.eventTicket.findUnique({
+          where: { id: item.ticket_id },
+        });
+        if (!ticket)
+          throw new BadRequestException(`Invalid ticket id: ${item.ticket_id}`);
+      }
+
+      const draft = await this.prisma.ticketCheckout.create({
         data: {
           user_id: userId,
-          event_ticket_id: ticketId,
-          amount: ticket.ticket_price,
-          status: 'pending',
-          transaction_id: transaction.id,
+          items: {
+            create: body.items.map((item) => ({
+              event_ticket_id: item.ticket_id,
+              quantity: item.quantity,
+            })),
+          },
+        },
+        include: {
+          items: {
+            include: {
+              event_ticket: true,
+            },
+          },
         },
       });
 
       return {
         success: true,
-        data: {
-          client_secret: paymentIntent.client_secret,
-          order_id: ticketOrder.id,
-        },
+        message: 'Checkout draft created',
       };
-
     } catch (error) {
-      console.log(error);
+      console.error(error);
       return {
         success: false,
-        message: 'Failed to create ticket order',
+        message: 'Failed to create checkout draft',
       };
     }
   }
 
-  // update(id: string, updateTicketDto: UpdateTicketDto) {
-  //   return `This action updates a #${id} ticket`;
-  // }
+  async getCheckoutDrafts(userId: string) {
+    try {
+      const drafts = await this.prisma.ticketCheckout.findMany({
+        where: { user_id: userId },
+        include: {
+          items: {
+            include: {
+              event_ticket: true,
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+      });
 
-  // remove(id: string) {
-  //   return `This action removes a #${id} ticket`;
-  // }
+      return {
+        success: true,
+        message: 'Checkout drafts found',
+        data: drafts,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to get checkout drafts',
+      };
+    }
+  }
+
+  async getCheckoutDraft(userId: string, id: string) {
+    try {
+      const draft = await this.prisma.ticketCheckout.findUnique({
+        where: { id },
+        include: {
+          items: {
+            include: {
+              event_ticket: true,
+            },
+          },
+        },
+      });
+
+      if (!draft || draft.user_id !== userId) {
+        throw new NotFoundException('Draft not found');
+      }
+
+      return {
+        success: true,
+        message: 'Draft found',
+        data: draft,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to get checkout draft',
+      };
+    }
+  }
+
+  async updateCheckoutDraft(
+    userId: string,
+    id: string,
+    body: UpdateTicketCheckoutDto,
+  ) {
+    try {
+      const draft = await this.prisma.ticketCheckout.findUnique({
+        where: { id },
+      });
+
+      if (!draft || draft.user_id !== userId) {
+        throw new NotFoundException('Draft not found');
+      }
+
+      const updateData: any = {};
+
+      if (body.items) {
+        // Replace items logic
+        updateData.items = {
+          deleteMany: {},
+          create: body.items.map((item) => ({
+            event_ticket_id: item.ticket_id,
+            quantity: item.quantity,
+          })),
+        };
+      }
+
+      const updatedDraft = await this.prisma.ticketCheckout.update({
+        where: { id },
+        data: updateData,
+        include: {
+          items: {
+            include: {
+              event_ticket: true,
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Draft updated successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update checkout draft',
+      };
+    }
+  }
+
+  async deleteCheckoutDraft(userId: string, id: string) {
+    try {
+      const draft = await this.prisma.ticketCheckout.findUnique({
+        where: { id },
+      });
+
+      if (!draft || draft.user_id !== userId) {
+        throw new NotFoundException('Draft not found');
+      }
+
+      await this.prisma.ticketCheckout.delete({
+        where: { id },
+      });
+
+      return {
+        success: true,
+        message: 'Draft deleted successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to delete checkout draft',
+      };
+    }
+  }
 }
