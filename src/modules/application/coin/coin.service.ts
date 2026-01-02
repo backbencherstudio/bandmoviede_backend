@@ -387,20 +387,50 @@ export class CoinService {
     try {
       const drafts = await this.prisma.coinCheckout.findMany({
         where: { user_id: userId },
-        include: {
+        select: {
+          id: true,
+          user_id: true,
+          sugo_id: true,
           items: {
-            include: {
-              coin_bundle: true,
+            select: {
+              id: true,
+              quantity: true,
+              created_at: true,
+              coin_bundle: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  created_at: true,
+                  thumbnail: true,
+                },
+              },
             },
           },
         },
         orderBy: { created_at: 'desc' },
       });
 
+      const data = drafts.map((draft) => ({
+        ...draft,
+        items: draft.items.map((item) => ({
+          ...item,
+          coin_bundle: {
+            ...item.coin_bundle,
+            thumbnail_url: item.coin_bundle.thumbnail
+              ? SojebStorage.url(
+                  appConfig().storageUrl.coinThumbnails +
+                    item.coin_bundle.thumbnail,
+                )
+              : null,
+          },
+        })),
+      }));
+
       return {
         success: true,
         message: 'Checkout drafts found',
-        data: drafts,
+        data: data,
       };
     } catch (error) {
       return {
@@ -414,10 +444,24 @@ export class CoinService {
     try {
       const draft = await this.prisma.coinCheckout.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          user_id: true,
+          sugo_id: true,
           items: {
-            include: {
-              coin_bundle: true,
+            select: {
+              id: true,
+              quantity: true,
+              created_at: true,
+              coin_bundle: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  created_at: true,
+                  thumbnail: true,
+                },
+              },
             },
           },
         },
@@ -427,10 +471,26 @@ export class CoinService {
         throw new NotFoundException('Draft not found');
       }
 
+      const data = {
+        ...draft,
+        items: draft.items.map((item) => ({
+          ...item,
+          coin_bundle: {
+            ...item.coin_bundle,
+            thumbnail_url: item.coin_bundle.thumbnail
+              ? SojebStorage.url(
+                  appConfig().storageUrl.coinThumbnails +
+                    item.coin_bundle.thumbnail,
+                )
+              : null,
+          },
+        })),
+      };
+
       return {
         success: true,
         message: 'Draft found',
-        data: draft,
+        data: data,
       };
     } catch (error) {
       return {
@@ -494,26 +554,54 @@ export class CoinService {
 
   async deleteCheckoutDraft(userId: string, id: string) {
     try {
+      // 1. Try to find and delete as a Draft
       const draft = await this.prisma.coinCheckout.findUnique({
         where: { id },
       });
 
-      if (!draft || draft.user_id !== userId) {
-        throw new NotFoundException('Draft not found');
+      if (draft) {
+        if (draft.user_id !== userId) {
+          throw new NotFoundException('Draft not found');
+        }
+
+        await this.prisma.coinCheckout.delete({
+          where: { id },
+        });
+
+        return {
+          success: true,
+          message: 'Draft deleted successfully',
+        };
       }
 
-      await this.prisma.coinCheckout.delete({
+      // 2. If not a draft, try to find and delete as an Item
+      const item = await this.prisma.coinCheckoutItem.findUnique({
         where: { id },
+        include: { coin_checkout: true },
       });
 
-      return {
-        success: true,
-        message: 'Draft deleted successfully',
-      };
+      if (item) {
+        if (item.coin_checkout.user_id !== userId) {
+          throw new NotFoundException('Item not found');
+        }
+
+        await this.prisma.coinCheckoutItem.delete({
+          where: { id },
+        });
+
+        return {
+          success: true,
+          message: 'Item deleted successfully',
+        };
+      }
+
+      // 3. If neither, throw error
+      throw new NotFoundException('Draft or Item not found');
     } catch (error) {
+      if (error instanceof NotFoundException) throw error;
       return {
         success: false,
-        message: 'Failed to delete checkout draft',
+        message: 'Failed to delete checkout draft or item',
       };
     }
   }

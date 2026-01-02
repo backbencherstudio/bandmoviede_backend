@@ -342,20 +342,53 @@ export class TicketService {
     try {
       const drafts = await this.prisma.ticketCheckout.findMany({
         where: { user_id: userId },
-        include: {
+        select: {
+          id: true,
+          user_id: true,
+          created_at: true,
           items: {
-            include: {
-              event_ticket: true,
+            select: {
+              id: true,
+              quantity: true,
+              created_at: true,
+              event_ticket: {
+                select: {
+                  id: true,
+                  title: true,
+                  ticket_status: true,
+                  event_date: true,
+                  location: true,
+                  ticket_price: true,
+                  created_at: true,
+                  thumbnail: true,
+                },
+              },
             },
           },
         },
         orderBy: { created_at: 'desc' },
       });
 
+      const data = drafts.map((draft) => ({
+        ...draft,
+        items: draft.items.map((item) => ({
+          ...item,
+          event_ticket: {
+            ...item.event_ticket,
+            thumbnail_url: item.event_ticket.thumbnail
+              ? SojebStorage.url(
+                  appConfig().storageUrl.ticketThumbnails +
+                    item.event_ticket.thumbnail,
+                )
+              : null,
+          },
+        })),
+      }));
+
       return {
         success: true,
         message: 'Checkout drafts found',
-        data: drafts,
+        data: data,
       };
     } catch (error) {
       return {
@@ -369,10 +402,27 @@ export class TicketService {
     try {
       const draft = await this.prisma.ticketCheckout.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          user_id: true,
+          created_at: true,
           items: {
-            include: {
-              event_ticket: true,
+            select: {
+              id: true,
+              quantity: true,
+              created_at: true,
+              event_ticket: {
+                select: {
+                  id: true,
+                  title: true,
+                  ticket_status: true,
+                  event_date: true,
+                  location: true,
+                  ticket_price: true,
+                  created_at: true,
+                  thumbnail: true,
+                },
+              },
             },
           },
         },
@@ -382,10 +432,26 @@ export class TicketService {
         throw new NotFoundException('Draft not found');
       }
 
+      const data = {
+        ...draft,
+        items: draft.items.map((item) => ({
+          ...item,
+          event_ticket: {
+            ...item.event_ticket,
+            thumbnail_url: item.event_ticket.thumbnail
+              ? SojebStorage.url(
+                  appConfig().storageUrl.ticketThumbnails +
+                    item.event_ticket.thumbnail,
+                )
+              : null,
+          },
+        })),
+      };
+
       return {
         success: true,
         message: 'Draft found',
-        data: draft,
+        data: data,
       };
     } catch (error) {
       return {
@@ -448,26 +514,54 @@ export class TicketService {
 
   async deleteCheckoutDraft(userId: string, id: string) {
     try {
+      // 1. Try to find and delete as a Draft
       const draft = await this.prisma.ticketCheckout.findUnique({
         where: { id },
       });
 
-      if (!draft || draft.user_id !== userId) {
-        throw new NotFoundException('Draft not found');
+      if (draft) {
+        if (draft.user_id !== userId) {
+          throw new NotFoundException('Draft not found');
+        }
+
+        await this.prisma.ticketCheckout.delete({
+          where: { id },
+        });
+
+        return {
+          success: true,
+          message: 'Draft deleted successfully',
+        };
       }
 
-      await this.prisma.ticketCheckout.delete({
+      // 2. If not a draft, try to find and delete as an Item
+      const item = await this.prisma.ticketCheckoutItem.findUnique({
         where: { id },
+        include: { ticket_checkout: true },
       });
 
-      return {
-        success: true,
-        message: 'Draft deleted successfully',
-      };
+      if (item) {
+        if (item.ticket_checkout.user_id !== userId) {
+          throw new NotFoundException('Item not found');
+        }
+
+        await this.prisma.ticketCheckoutItem.delete({
+          where: { id },
+        });
+
+        return {
+          success: true,
+          message: 'Item deleted successfully',
+        };
+      }
+
+      // 3. If neither, throw error
+      throw new NotFoundException('Draft or Item not found');
     } catch (error) {
+      if (error instanceof NotFoundException) throw error;
       return {
         success: false,
-        message: 'Failed to delete checkout draft',
+        message: 'Failed to delete checkout draft or item',
       };
     }
   }
