@@ -9,6 +9,7 @@ import { CoinModule } from './coin/coin.module';
 import { TicketModule } from './ticket/ticket.module';
 import { OverviewModule } from './overview/overview.module';
 import { OrderModule } from './order/order.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { OrderModule } from './order/order.module';
     TicketModule,
     OverviewModule,
     OrderModule,
+    AnalyticsModule,
   ],
 })
 export class AdminModule {}

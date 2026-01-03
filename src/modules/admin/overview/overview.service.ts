@@ -65,50 +65,65 @@ export class OverviewService {
         break;
     }
 
-    const [coinOrders, eventOrders] = await Promise.all([
-      this.prisma.coinOrder.findMany({
-        where: {
-          status: 'complete',
-          created_at: { gte: startDate.toDate() },
-        },
-        select: {
-          amount: true,
-          created_at: true,
-        },
-      }),
-      this.prisma.eventOrder.findMany({
-        where: {
-          status: 'complete',
-          created_at: { gte: startDate.toDate() },
-        },
-        select: {
-          amount: true,
-          created_at: true,
-        },
-      }),
+    const dateFormat = groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM';
+
+    const coinRevenueQuery = this.prisma.$queryRawUnsafe<
+      { date: string; revenue: number }[]
+    >(
+      `
+      SELECT TO_CHAR(created_at, '${groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM'}') as date, SUM(amount) as revenue
+      FROM coin_orders
+      WHERE status = 'complete' AND created_at >= $1
+      GROUP BY date
+      ORDER BY date ASC
+    `,
+      startDate.toDate(),
+    );
+
+    const eventRevenueQuery = this.prisma.$queryRawUnsafe<
+      { date: string; revenue: number }[]
+    >(
+      `
+      SELECT TO_CHAR(created_at, '${groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM'}') as date, SUM(amount) as revenue
+      FROM event_orders
+      WHERE status = 'complete' AND created_at >= $1
+      GROUP BY date
+      ORDER BY date ASC
+    `,
+      startDate.toDate(),
+    );
+
+    const [coinRevenue, eventRevenue] = await Promise.all([
+      coinRevenueQuery,
+      eventRevenueQuery,
     ]);
 
-    const combined = [...coinOrders, ...eventOrders];
     const analyticsMap = new Map<string, number>();
 
     // Initialize map with all dates in range to ensure zero values are present
     let current = startDate;
     while (current.isBefore(now) || current.isSame(now, groupBy)) {
-      const label = current.format(
-        groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM',
-      );
+      const label = current.format(dateFormat);
       analyticsMap.set(label, 0);
       current = current.add(1, groupBy);
     }
 
-    combined.forEach((order) => {
-      const label = dayjs(order.created_at).format(
-        groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM',
-      );
-      if (analyticsMap.has(label)) {
+    // Merge coin revenue
+    coinRevenue.forEach((row) => {
+      if (analyticsMap.has(row.date)) {
         analyticsMap.set(
-          label,
-          (analyticsMap.get(label) || 0) + (order.amount || 0),
+          row.date,
+          analyticsMap.get(row.date) + Number(row.revenue || 0),
+        );
+      }
+    });
+
+    // Merge event revenue
+    eventRevenue.forEach((row) => {
+      if (analyticsMap.has(row.date)) {
+        analyticsMap.set(
+          row.date,
+          analyticsMap.get(row.date) + Number(row.revenue || 0),
         );
       }
     });
