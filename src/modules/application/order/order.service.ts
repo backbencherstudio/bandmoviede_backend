@@ -1,16 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
-import { FindAllOrderQueryDto } from './dto/query-order.dto';
+import {
+  FindAllOrderQueryDto,
+  FindEventTicketsQueryDto,
+} from './dto/query-order.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class OrderService {
   constructor(private readonly prisma: PrismaService) {}
-
-  create(createOrderDto: CreateOrderDto) {
-    return 'This action adds a new order';
-  }
 
   async findAll(query: FindAllOrderQueryDto, user_id: string) {
     const page = Number(query.page || 1);
@@ -79,7 +76,9 @@ export class OrderService {
       await Promise.all([
         this.prisma.eventOrder.count({ where: { user_id } }),
         this.prisma.coinOrder.count({ where: { user_id } }),
-        this.prisma.eventTicket.count({ where: { user_id, status: 'Active' } }),
+        this.prisma.eventOrder.count({
+          where: { user_id, event_ticket: { status: 'Active' } },
+        }),
       ]);
 
     return {
@@ -92,15 +91,27 @@ export class OrderService {
     };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} order`;
-  }
+  async findEventTickets(user_id: string, query: FindEventTicketsQueryDto) {
+    if (!user_id) throw new UnauthorizedException('Unauthorized');
+    const page = query.page;
+    const limit = query.limit;
+    const skip = (page - 1) * limit;
 
-  update(id: number, updateOrderDto: UpdateOrderDto) {
-    return `This action updates a #${id} order`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} order`;
+    const activeTickets = this.prisma.eventOrder.findMany({
+      where: {
+        user_id,
+        ...(query.status ? { event_ticket: { status: query.status } } : {}),
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+    return {
+      success: true,
+      message: 'Active tickets retrieved successfully',
+      data: activeTickets,
+    };
   }
 }
