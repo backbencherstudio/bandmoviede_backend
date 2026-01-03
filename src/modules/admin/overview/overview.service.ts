@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateOverviewDto } from './dto/create-overview.dto';
 import { UpdateOverviewDto } from './dto/update-overview.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import dayjs from 'dayjs';
+import * as dayjs from 'dayjs';
 
 @Injectable()
 export class OverviewService {
@@ -40,7 +40,7 @@ export class OverviewService {
     };
   }
 
-  async getSalesAnalytics(period: string) {
+  async getSalesAnalytics(period?: string) {
     const now = dayjs();
     let startDate: dayjs.Dayjs;
     let groupBy: 'day' | 'month' | 'week' = 'day';

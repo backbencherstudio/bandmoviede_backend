@@ -5,7 +5,7 @@ import { Roles } from 'src/common/guard/role/roles.decorator';
 import { Role } from 'src/common/guard/role/role.enum';
 import { UseGuards } from '@nestjs/common';
 
-@Controller('overview')
+@Controller('admin/overview')
 @UseGuards(JwtAuthGuard)
 @Roles(Role.ADMIN)
 export class OverviewController {
@@ -17,7 +17,7 @@ export class OverviewController {
   }
 
   @Get('sales-analytics')
-  getSalesAnalytics(@Query('period') period: string) {
+  getSalesAnalytics(@Query('period') period?: string) {
     return this.overviewService.getSalesAnalytics(period);
   }
 
