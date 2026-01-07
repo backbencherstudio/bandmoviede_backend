@@ -31,12 +31,15 @@ import { FindAllQueryDto } from './dto/query-coin.dto';
 @Roles(Role.ADMIN)
 @Controller('admin/coin')
 export class CoinController {
-  constructor(private readonly coinService: CoinService) {}
+  constructor(private readonly coinService: CoinService) { }
 
   @Post()
   @UseInterceptors(
     FileInterceptor('thumbnail', {
       storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
     }),
   )
   createCoinBundle(
@@ -62,6 +65,9 @@ export class CoinController {
   @UseInterceptors(
     FileInterceptor('thumbnail', {
       storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
     }),
   )
   updateCoinBundle(

@@ -10,6 +10,7 @@ import { TicketModule } from './ticket/ticket.module';
 import { OverviewModule } from './overview/overview.module';
 import { OrderModule } from './order/order.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { OwnerModule } from './owner/owner.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     OverviewModule,
     OrderModule,
     AnalyticsModule,
+    OwnerModule,
   ],
 })
 export class AdminModule {}

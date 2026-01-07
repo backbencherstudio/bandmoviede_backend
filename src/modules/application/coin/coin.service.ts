@@ -15,12 +15,14 @@ import {
 import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from 'src/common/helper/string.helper';
+import { OwnerService } from 'src/modules/admin/owner/owner.service';
 
 @Injectable()
 export class CoinService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly transactionRepository: TransactionRepository,
+    private readonly ownerService: OwnerService,
   ) {}
 
   async findAllCoinBundle(query: FindAllQueryDto) {
@@ -139,6 +141,25 @@ export class CoinService {
         };
       }
 
+      // Check owner balance
+      const ownerCoins = await this.ownerService.findOwnerCoins();
+      if (!ownerCoins.success || !ownerCoins.data?.balance) {
+        return {
+          success: false,
+          message: 'Failed to fetch owner balance',
+        };
+      }
+
+      const ownerBalance = parseFloat(ownerCoins.data.balance);
+      const totalCoinAmount = coinBundle.coin_amount * (quantity || 1);
+
+      if (ownerBalance < totalCoinAmount) {
+        return {
+          success: false,
+          message: 'System is currently unavailable to process this request',
+        };
+      }
+
       // Check if user has stripe customer id
       let stripeCustomerId = user.billing_id;
       if (!stripeCustomerId) {
@@ -225,6 +246,7 @@ export class CoinService {
 
       // 1. Validate all bundles and calculate total amount
       let totalAmount = 0;
+      let totalCoinAmount = 0;
       const bundleDetails = [];
 
       for (const item of body.items) {
@@ -239,7 +261,25 @@ export class CoinService {
         }
 
         totalAmount += bundle.price * item.quantity;
+        totalCoinAmount += bundle.coin_amount * item.quantity;
         bundleDetails.push({ bundle, quantity: item.quantity });
+      }
+
+      // Check owner balance
+      const ownerCoins = await this.ownerService.findOwnerCoins();
+      if (!ownerCoins.success || !ownerCoins.data?.balance) {
+        return {
+          success: false,
+          message: 'Failed to fetch owner balance',
+        };
+      }
+
+      const ownerBalance = parseFloat(ownerCoins.data.balance);
+      if (ownerBalance < totalCoinAmount) {
+        return {
+          success: false,
+          message: 'System is currently unavailable to process this request',
+        };
       }
 
       // 2. Get User and Stripe Customer
