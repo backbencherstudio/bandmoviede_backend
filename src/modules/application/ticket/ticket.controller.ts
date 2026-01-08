@@ -21,14 +21,16 @@ import {
 } from './dto/ticket-checkout.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { Public } from 'src/common/guard/public';
 
 @ApiBearerAuth()
-@ApiTags('Ticket')
 @UseGuards(JwtAuthGuard)
+@ApiTags('Ticket')
 @Controller('ticket')
 export class TicketController {
   constructor(private readonly ticketService: TicketService) {}
 
+  @Public()
   @Get('all')
   findAll(@Query() query: FindAllQueryDto) {
     return this.ticketService.findAll(query);
@@ -66,6 +68,7 @@ export class TicketController {
     return this.ticketService.deleteCheckoutDraft(req.user.userId, id);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ticketService.findOne(id);

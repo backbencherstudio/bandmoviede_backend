@@ -99,4 +99,8 @@ export default () => ({
       password: process.env.SYSTEM_PASSWORD,
     },
   },
+  sugo: {
+    coinTransferUrl: process.env.SUGO_COIN_TRANSFER,
+    sellerId: process.env.COIN_SELLER_ID,
+  },
 });

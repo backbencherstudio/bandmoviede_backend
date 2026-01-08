@@ -23,6 +23,7 @@ import {
   CreateCoinCheckoutDto,
   UpdateCoinCheckoutDto,
 } from './dto/coin-checkout.dto';
+import { Public } from 'src/common/guard/public';
 
 @ApiBearerAuth()
 @ApiTags('Coin')
@@ -31,11 +32,13 @@ import {
 export class CoinController {
   constructor(private readonly coinService: CoinService) {}
 
+  @Public()
   @Get('all')
   getAllCoinBundle(@Query() query: FindAllQueryDto) {
     return this.coinService.findAllCoinBundle(query);
   }
 
+  @Public()
   @Get('bundle/:id')
   getCoinBundleById(@Param('id') id: string) {
     return this.coinService.findCoinBundleById(id);
