@@ -16,6 +16,7 @@ import { TransactionRepository } from 'src/common/repository/transaction/transac
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { OwnerService } from 'src/modules/admin/owner/owner.service';
+import axios from 'axios';
 
 @Injectable()
 export class CoinService {
@@ -108,12 +109,26 @@ export class CoinService {
     };
   }
 
+  // State variables for retry mechanism
+  private isSystemLocked = false;
+  private retryQueue: { sugoId: string; amount: number }[] = [];
+  private retryInterval: NodeJS.Timeout | null = null;
+  private readonly RETRY_INTERVAL_MS = 60000; // 1 minute
+
   async createCoinOrder(
     userId: string,
     bundleId: string,
     sugo_id: string,
     quantity?: number,
   ) {
+    // 1. Check system lock
+    if (this.isSystemLocked) {
+      return {
+        success: false,
+        message: 'System is currently unavailable to process this request',
+      };
+    }
+
     try {
       const coinBundle = await this.prisma.coinBundle.findUnique({
         where: {
@@ -222,6 +237,9 @@ export class CoinService {
       // I can put coinOrder.id there if I want validation.
       // But I will skip that circular update for now to keep it simple, as the relation is established via `transaction_id` in CoinOrder.
 
+      // Transfer coins to Sugo
+      await this.transferCoinsToSugo(sugo_id, totalCoinAmount);
+
       return {
         success: true,
         message: 'Coin order created successfully',
@@ -239,9 +257,41 @@ export class CoinService {
   }
 
   async checkout(userId: string, body: CheckoutCoinDto) {
+    // 1. Check system lock
+    if (this.isSystemLocked) {
+      return {
+        success: false,
+        message: 'System is currently unavailable to process this request',
+      };
+    }
+
     try {
-      if (!body.items || body.items.length === 0) {
-        throw new BadRequestException('No coin bundles provided');
+      let items: { bundle_id: string; quantity: number }[] = [];
+      let sugo_id = body.sugo_id;
+
+      if (body.checkout_id) {
+        const draft = await this.prisma.coinCheckout.findUnique({
+          where: { id: body.checkout_id },
+          include: { items: true },
+        });
+
+        if (!draft || draft.user_id !== userId) {
+          throw new NotFoundException('Checkout draft not found');
+        }
+
+        items = draft.items.map((item) => ({
+          bundle_id: item.coin_bundle_id,
+          quantity: item.quantity,
+        }));
+        sugo_id = draft.sugo_id;
+      } else {
+        if (!body.items || body.items.length === 0) {
+          throw new BadRequestException('No coin bundles provided');
+        }
+        if (!body.sugo_id) {
+          throw new BadRequestException('Sugo ID is required');
+        }
+        items = body.items;
       }
 
       // 1. Validate all bundles and calculate total amount
@@ -249,7 +299,7 @@ export class CoinService {
       let totalCoinAmount = 0;
       const bundleDetails = [];
 
-      for (const item of body.items) {
+      for (const item of items) {
         const bundle = await this.prisma.coinBundle.findUnique({
           where: { id: item.bundle_id, status: 'Active' },
         });
@@ -275,6 +325,7 @@ export class CoinService {
       }
 
       const ownerBalance = parseFloat(ownerCoins.data.balance);
+      // console.log(ownerBalance, totalCoinAmount);
       if (ownerBalance < totalCoinAmount) {
         return {
           success: false,
@@ -311,7 +362,7 @@ export class CoinService {
         metadata: {
           type: 'coin_checkout',
           user_id: userId,
-          bundle_count: body.items.length.toString(),
+          bundle_count: items.length.toString(),
         },
       });
 
@@ -348,14 +399,24 @@ export class CoinService {
               quantity: item.quantity,
               status: 'pending',
               transaction_id: transaction.id,
-              sugo_id: body.sugo_id,
+              sugo_id: sugo_id,
             },
           });
           createdOrders.push(order);
         }
 
+        // Delete checkout draft if it exists
+        if (body.checkout_id) {
+          await prisma.coinCheckout.delete({
+            where: { id: body.checkout_id },
+          });
+        }
+
         return { transaction, createdOrders };
       });
+
+      // Transfer coins to Sugo
+      await this.transferCoinsToSugo(sugo_id, totalCoinAmount);
 
       return {
         success: true,
@@ -441,6 +502,7 @@ export class CoinService {
                   id: true,
                   name: true,
                   price: true,
+                  coin_amount: true,
                   created_at: true,
                   thumbnail: true,
                 },
@@ -457,6 +519,7 @@ export class CoinService {
           ...item,
           coin_bundle: {
             ...item.coin_bundle,
+            total_coin: item.coin_bundle.coin_amount * item.quantity,
             thumbnail_url: item.coin_bundle.thumbnail
               ? SojebStorage.url(
                   appConfig().storageUrl.coinThumbnails +
@@ -498,6 +561,7 @@ export class CoinService {
                   id: true,
                   name: true,
                   price: true,
+                  coin_amount: true,
                   created_at: true,
                   thumbnail: true,
                 },
@@ -517,6 +581,7 @@ export class CoinService {
           ...item,
           coin_bundle: {
             ...item.coin_bundle,
+            total_coin: item.coin_bundle.coin_amount * item.quantity,
             thumbnail_url: item.coin_bundle.thumbnail
               ? SojebStorage.url(
                   appConfig().storageUrl.coinThumbnails +
@@ -644,5 +709,95 @@ export class CoinService {
         message: 'Failed to delete checkout draft or item',
       };
     }
+  }
+
+  private async transferCoinsToSugo(sugoId: string, amount: number) {
+    const url = appConfig().sugo.coinTransferUrl;
+    const sellerId = appConfig().sugo.sellerId;
+
+    if (!url || !sellerId) {
+      console.warn('Sugo coin transfer URL or Seller ID not configured');
+      return;
+    }
+
+    try {
+      const payload = {
+        coin_seller_id: sellerId,
+        user_id: sugoId,
+        recharge_amount: amount.toString(),
+        nonce: Date.now().toString(),
+      };
+
+      const result = await axios.post(url, payload);
+
+      // Handle 80002 code: Owner balance not enough
+      // {"rspHead":{"code":0, "prompt":""}, "balance":"290"}
+      const responseData = result.data;
+      if (responseData?.rspHead?.code === 80002) {
+        console.warn(
+          'Owner coin balance low (Code 80002). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = true;
+        this.retryQueue.push({ sugoId, amount });
+        this.startRetryMechanism();
+      }
+    } catch (error) {
+      console.error(
+        'Failed to transfer coins to Sugo:',
+        error.response?.data || error.message,
+      );
+    }
+  }
+
+  private startRetryMechanism() {
+    if (this.retryInterval) {
+      return; // Already running
+    }
+
+    console.log('Starting Sugo transfer retry mechanism...');
+    this.retryInterval = setInterval(async () => {
+      if (this.retryQueue.length === 0) {
+        console.log('Retry queue empty. Unlocking system.');
+        this.isSystemLocked = false;
+        if (this.retryInterval) {
+          clearInterval(this.retryInterval);
+          this.retryInterval = null;
+        }
+        return;
+      }
+
+      const item = this.retryQueue[0];
+      console.log(
+        `Retrying transfer for Sugo ID: ${item.sugoId}, Amount: ${item.amount}`,
+      );
+
+      try {
+        const url = appConfig().sugo.coinTransferUrl;
+        const sellerId = appConfig().sugo.sellerId;
+
+        const payload = {
+          coin_seller_id: sellerId,
+          user_id: item.sugoId,
+          recharge_amount: item.amount.toString(),
+          nonce: Date.now().toString(),
+        };
+
+        const result = await axios.post(url, payload);
+        const responseData = result.data;
+
+        if (responseData?.rspHead?.code === 0) {
+          console.log('Retry successful. Removing item from queue.');
+          this.retryQueue.shift(); // Remove the successful item
+        } else if (responseData?.rspHead?.code === 80002) {
+          console.log('Retry failed with code 80002. Will retry again later.');
+        } else {
+          console.log(
+            `Retry returned unexpected code: ${responseData?.rspHead?.code}. Will retry again later.`,
+          );
+        }
+      } catch (error) {
+        console.error('Retry attempt failed:', error.message);
+      }
+    }, this.RETRY_INTERVAL_MS);
   }
 }

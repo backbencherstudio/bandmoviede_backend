@@ -4,6 +4,7 @@ import {
   IsArray,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Min,
   ValidateNested,
@@ -22,14 +23,20 @@ export class CoinItemDto {
 }
 
 export class CheckoutCoinDto {
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @IsString()
-  @IsNotEmpty()
-  sugo_id: string;
+  @IsOptional()
+  checkout_id?: string;
 
-  @ApiProperty({ type: [CoinItemDto] })
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  sugo_id?: string;
+
+  @ApiProperty({ type: [CoinItemDto], required: false })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CoinItemDto)
-  items: CoinItemDto[];
+  @IsOptional()
+  items?: CoinItemDto[];
 }

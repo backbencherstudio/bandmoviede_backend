@@ -128,7 +128,30 @@ export class TicketService {
 
   async checkout(userId: string, body: CheckoutTicketDto) {
     try {
-      if (!body.items || body.items.length === 0) {
+      let ticketItems = body.items;
+
+      // 0. Handle Checkout Draft if ID provided
+      if (body.checkout_id) {
+        const draft = await this.prisma.ticketCheckout.findUnique({
+          where: { id: body.checkout_id },
+          include: { items: true },
+        });
+
+        if (!draft || draft.user_id !== userId) {
+          throw new NotFoundException('Checkout draft not found');
+        }
+
+        if (!draft.items || draft.items.length === 0) {
+          throw new BadRequestException('Checkout draft is empty');
+        }
+
+        ticketItems = draft.items.map((item) => ({
+          ticket_id: item.event_ticket_id,
+          quantity: item.quantity,
+        }));
+      }
+
+      if (!ticketItems || ticketItems.length === 0) {
         throw new BadRequestException('No tickets provided');
       }
 
@@ -136,7 +159,7 @@ export class TicketService {
       let totalAmount = 0;
       const ticketDetails = [];
 
-      for (const item of body.items) {
+      for (const item of ticketItems) {
         const ticket = await this.prisma.eventTicket.findUnique({
           where: { id: item.ticket_id, status: 'Active' },
         });
@@ -189,7 +212,7 @@ export class TicketService {
         metadata: {
           type: 'ticket_checkout',
           user_id: userId,
-          ticket_count: body.items.length.toString(),
+          ticket_count: ticketItems.length.toString(),
         },
       });
 
@@ -230,6 +253,13 @@ export class TicketService {
             });
             createdOrders.push(order);
           }
+        }
+
+        // Delete draft if used
+        if (body.checkout_id) {
+          await prisma.ticketCheckout.delete({
+            where: { id: body.checkout_id },
+          });
         }
 
         return { transaction, createdOrders };

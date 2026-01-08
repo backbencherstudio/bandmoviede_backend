@@ -7,6 +7,7 @@ import {
   IsString,
   Min,
   ValidateNested,
+  IsOptional,
 } from 'class-validator';
 
 export class TicketItemDto {
@@ -22,9 +23,15 @@ export class TicketItemDto {
 }
 
 export class CheckoutTicketDto {
-  @ApiProperty({ type: [TicketItemDto] })
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  checkout_id?: string;
+
+  @ApiProperty({ type: [TicketItemDto], required: false })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TicketItemDto)
-  items: TicketItemDto[];
+  @IsOptional()
+  items?: TicketItemDto[];
 }
