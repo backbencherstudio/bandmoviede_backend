@@ -17,6 +17,8 @@ import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { OwnerService } from 'src/modules/admin/owner/owner.service';
 import axios from 'axios';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 
 @Injectable()
 export class CoinService {
@@ -24,6 +26,8 @@ export class CoinService {
     private readonly prisma: PrismaService,
     private readonly transactionRepository: TransactionRepository,
     private readonly ownerService: OwnerService,
+    private readonly notificationRepository: NotificationRepository,
+    private readonly messageGateway: MessageGateway,
   ) {}
 
   async findAllCoinBundle(query: FindAllQueryDto) {
@@ -158,7 +162,53 @@ export class CoinService {
 
       // Check owner balance
       const ownerCoins = await this.ownerService.findOwnerCoins();
+
       if (!ownerCoins.success || !ownerCoins.data?.balance) {
+        const admins = await this.prisma.user.findMany({
+          where: {
+            type: 'admin',
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (admins && admins.length > 0) {
+          for (const admin of admins) {
+            const lowBalanceAlertPayload: any = {
+              sender_id: null,
+              receiver_id: admin.id,
+              text: `Owner coin balance is low: ${ownerCoins.data?.balance}. Limit: ${appConfig().sugo.ownerBalanceLimit}`,
+              type: 'owner_coin_low',
+            };
+
+            const hasSentToday =
+              await this.notificationRepository.hasTodayNotification(
+                admin.id,
+                'owner_coin_low',
+              );
+
+            if (hasSentToday) {
+              // console.log(
+              //   `Notification already sent to user ${admin.id} today`,
+              // );
+              continue;
+            }
+
+            const userSocketId = this.messageGateway.clients.get(admin.id);
+
+            if (userSocketId) {
+              this.messageGateway.server
+                .to(userSocketId)
+                .emit('lowBalanceAlert', lowBalanceAlertPayload);
+            }
+
+            await this.notificationRepository.createNotification(
+              lowBalanceAlertPayload,
+            );
+          }
+        }
+
         return {
           success: false,
           message: 'Failed to fetch owner balance',
@@ -327,6 +377,50 @@ export class CoinService {
       const ownerBalance = parseFloat(ownerCoins.data.balance);
       // console.log(ownerBalance, totalCoinAmount);
       if (ownerBalance < totalCoinAmount) {
+        const admins = await this.prisma.user.findMany({
+          where: {
+            type: 'admin',
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (admins && admins.length > 0) {
+          for (const admin of admins) {
+            const lowBalanceAlertPayload: any = {
+              sender_id: null,
+              receiver_id: admin.id,
+              text: `Owner coin balance is low: ${ownerBalance}. Limit: ${totalCoinAmount}`,
+              type: 'owner_coin_low',
+            };
+
+            const hasSentToday =
+              await this.notificationRepository.hasTodayNotification(
+                admin.id,
+                'owner_coin_low',
+              );
+
+            if (hasSentToday) {
+              // console.log(
+              //   `Notification already sent to user ${admin.id} today`,
+              // );
+              continue;
+            }
+
+            const userSocketId = this.messageGateway.clients.get(admin.id);
+
+            if (userSocketId) {
+              this.messageGateway.server
+                .to(userSocketId)
+                .emit('lowBalanceAlert', lowBalanceAlertPayload);
+            }
+
+            await this.notificationRepository.createNotification(
+              lowBalanceAlertPayload,
+            );
+          }
+        }
         return {
           success: false,
           message: 'System is currently unavailable to process this request',
@@ -713,7 +807,7 @@ export class CoinService {
 
   private async transferCoinsToSugo(sugoId: string, amount: number) {
     const url = appConfig().sugo.coinTransferUrl;
-    const sellerId = appConfig().sugo.sellerId;
+    const sellerId = appConfig().sugo.ownerId;
 
     if (!url || !sellerId) {
       console.warn('Sugo coin transfer URL or Seller ID not configured');
@@ -773,7 +867,7 @@ export class CoinService {
 
       try {
         const url = appConfig().sugo.coinTransferUrl;
-        const sellerId = appConfig().sugo.sellerId;
+        const sellerId = appConfig().sugo.ownerId;
 
         const payload = {
           coin_seller_id: sellerId,

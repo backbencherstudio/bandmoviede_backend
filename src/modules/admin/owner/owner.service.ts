@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { MessageGateway } from 'src/modules/chat/message/message.gateway';
+import appConfig from 'src/config/app.config';
 
 @Injectable()
 export class OwnerService {
@@ -16,7 +17,7 @@ export class OwnerService {
   // get owner info
   async findOwnerInfo() {
     try {
-      const url = process.env.SUGO_OWNER_INFO_GET + process.env.COIN_SELLER_ID;
+      const url = appConfig().sugo.ownerInfoUrl + appConfig().sugo.ownerId;
 
       const { data } = await axios.get(url);
       return {
@@ -35,7 +36,7 @@ export class OwnerService {
   //get owner coins
   async findOwnerCoins() {
     try {
-      const url = process.env.SUGO_OWNER_COIN_GET + process.env.COIN_SELLER_ID;
+      const url = appConfig().sugo.ownerCoinUrl + appConfig().sugo.ownerId;
       const { data } = await axios.get(url);
       return {
         success: true,
@@ -50,13 +51,13 @@ export class OwnerService {
     }
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_HOUR)
   async handleCron() {
     const res = await this.findOwnerCoins();
 
     if (res.success && res.data?.balance) {
       const balance = parseFloat(res.data.balance);
-      const limit = parseFloat(process.env.LOW_BALANCE_LIMIT || '300');
+      const limit = parseFloat(appConfig().sugo.ownerBalanceLimit || '300');
 
       if (balance < limit) {
         const admins = await this.prisma.user.findMany({
