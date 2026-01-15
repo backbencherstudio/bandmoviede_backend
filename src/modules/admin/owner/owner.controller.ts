@@ -11,7 +11,6 @@ export class OwnerController {
   constructor(private readonly ownerService: OwnerService) {}
 
   @Get('info')
-  // @HttpCode(HttpStatus.OK)
   findOwnerInfo() {
     return this.ownerService.findOwnerInfo();
   }
