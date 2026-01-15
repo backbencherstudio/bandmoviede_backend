@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { CoinService } from './coin.service';
 import { CreateCoinDto } from './dto/create-coin.dto';
@@ -31,7 +32,7 @@ import { FindAllQueryDto } from './dto/query-coin.dto';
 @Roles(Role.ADMIN)
 @Controller('admin/coin')
 export class CoinController {
-  constructor(private readonly coinService: CoinService) { }
+  constructor(private readonly coinService: CoinService) {}
 
   @Post()
   @UseInterceptors(
@@ -39,6 +40,15 @@ export class CoinController {
       storage: memoryStorage(),
       limits: {
         fileSize: 10 * 1024 * 1024,
+      },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
+        }
+        cb(null, true);
       },
     }),
   )

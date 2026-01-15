@@ -32,7 +32,18 @@ export class CoinService {
         'Coin amount must be greater than or equal to 0',
       );
     }
-    const name = StringHelper.randomString(8).toUpperCase();
+    let name = StringHelper.randomString(8).toUpperCase();
+    let isNameExist = await this.prisma.coinBundle.findFirst({
+      where: { name },
+    });
+
+    while (isNameExist) {
+      name = StringHelper.randomString(8).toUpperCase();
+      isNameExist = await this.prisma.coinBundle.findFirst({
+        where: { name },
+      });
+    }
+
     let fileName: string | null = null;
 
     if (thumbnail) {

@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { TicketService } from './ticket.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -31,7 +32,7 @@ import { FindAllQueryDto } from './dto/query-ticket.dto';
 @Roles(Role.ADMIN)
 @Controller('admin/ticket')
 export class TicketController {
-  constructor(private readonly ticketService: TicketService) { }
+  constructor(private readonly ticketService: TicketService) {}
 
   @Post()
   @UseInterceptors(
@@ -39,6 +40,15 @@ export class TicketController {
       storage: memoryStorage(),
       limits: {
         fileSize: 10 * 1024 * 1024,
+      },
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
+        }
+        cb(null, true);
       },
     }),
   )
@@ -82,5 +92,4 @@ export class TicketController {
   remove(@Param('id') id: string) {
     return this.ticketService.remove(id);
   }
-
 }
