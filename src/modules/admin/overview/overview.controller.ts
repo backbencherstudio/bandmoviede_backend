@@ -22,7 +22,7 @@ export class OverviewController {
   }
 
   @Get('user-activity')
-  getUserActivity() {
-    return this.overviewService.getUserActivity();
+  getUserActivity(@Query('year') year?: number) {
+    return this.overviewService.getUserActivity(year);
   }
 }

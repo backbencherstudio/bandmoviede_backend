@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsIn } from 'class-validator';
 
 export class PaginationQueryDto {
   @IsOptional()
@@ -12,4 +12,16 @@ export class PaginationQueryDto {
   limit?: number = 10;
 }
 
-export class FindAllOrderQueryDto extends PaginationQueryDto {}
+export class FindAllOrderQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsIn(['COIN', 'TICKET'])
+  type?: 'COIN' | 'TICKET';
+
+  @IsOptional()
+  @IsIn(['all', 'this_month', 'last_month', 'this_year', 'last_year'])
+  filter?: 'all' | 'this_month' | 'last_month' | 'this_year' | 'last_year';
+}
