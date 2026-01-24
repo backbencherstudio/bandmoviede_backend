@@ -498,11 +498,10 @@ enum TicketStatus {
 }
 
 model EventTicket {
-  id         String    @id @default(cuid())
-  created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
-  deleted_at DateTime?
-
+  id                  String               @id @default(cuid())
+  created_at          DateTime             @default(now())
+  updated_at          DateTime             @default(now())
+  deleted_at          DateTime?
   title               String
   description         String?
   about               String?
