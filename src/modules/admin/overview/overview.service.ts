@@ -140,53 +140,65 @@ export class OverviewService {
     };
   }
 
-  async getUserActivity() {
-    const now = dayjs();
-    const startDate = now.subtract(11, 'month').startOf('month');
+  async getUserActivity(year?: number) {
+    const currentYear = year || new Date().getFullYear();
 
-    const users = await this.prisma.user.findMany({
+    // Get monthly active users from user_activities table
+    const userActivity = await this.prisma.$queryRaw<any[]>`
+      SELECT 
+        EXTRACT(MONTH FROM activity_date) as month_num,
+        TO_CHAR(activity_date, 'Mon') as month,
+        COUNT(DISTINCT user_id) as active_users
+      FROM user_activities
+      WHERE EXTRACT(YEAR FROM activity_date) = ${currentYear}
+      GROUP BY EXTRACT(MONTH FROM activity_date), TO_CHAR(activity_date, 'Mon')
+      ORDER BY EXTRACT(MONTH FROM activity_date)
+    `;
+
+    // Get total registered users for calculating inactive
+    const totalUsers = await this.prisma.user.count({
       where: {
-        created_at: { gte: startDate.toDate() },
         deleted_at: null,
-      },
-      select: {
-        status: true,
-        created_at: true,
+        status: 1,
       },
     });
 
-    const activityMap = new Map<string, { active: number; inactive: number }>();
+    // Initialize all 12 months
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const data = months.map((month, index) => {
+      const found = userActivity.find(
+        (item) => Number(item.month_num) === index + 1,
+      );
+      const activeCount = found ? Number(found.active_users) : 0;
 
-    // Initialize map with last 12 months
-    let current = startDate;
-    for (let i = 0; i < 12; i++) {
-      const monthLabel = current.format('MMM'); // e.g., "Jan", "Feb"
-      activityMap.set(monthLabel, { active: 0, inactive: 0 });
-      current = current.add(1, 'month');
-    }
-
-    users.forEach((user) => {
-      const monthLabel = dayjs(user.created_at).format('MMM');
-      if (activityMap.has(monthLabel)) {
-        const stats = activityMap.get(monthLabel);
-        if (user.status === 1) {
-          stats.active++;
-        } else {
-          stats.inactive++;
-        }
-      }
+      return {
+        month,
+        active_users: activeCount,
+        inactive_users: totalUsers - activeCount,
+      };
     });
-
-    const data = Array.from(activityMap.entries()).map(([month, stats]) => ({
-      month,
-      active: stats.active,
-      inactive: stats.inactive,
-    }));
 
     return {
       success: true,
       message: 'User activity analytics fetched successfully',
       data,
+      meta: {
+        year: currentYear,
+        total_users: totalUsers,
+      },
     };
   }
 }

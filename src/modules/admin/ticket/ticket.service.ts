@@ -95,10 +95,51 @@ export class TicketService {
   }
 
   async findAll(query: FindAllQueryDto) {
-    const { search, page = 1, limit = 10 } = query;
+    const { search, page = 1, limit = 10, filter = 'all' } = query;
     const skip = (page - 1) * limit;
     const take = limit;
     const where: Prisma.EventTicketWhereInput = {};
+
+    // Build date filter conditions
+    const now = new Date();
+    let startDate: Date | null = null;
+    let endDate: Date | null = null;
+
+    switch (filter) {
+      case 'this_month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
+        break;
+      case 'last_month':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        break;
+      case 'this_year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+        break;
+      case 'last_year':
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+        endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+        break;
+    }
+
+    // Add date filter to where clause
+    if (startDate && endDate) {
+      where.created_at = {
+        gte: startDate,
+        lte: endDate,
+      };
+    }
+
+    // Add search filter
     if (search) {
       where.OR = [
         {
@@ -147,6 +188,7 @@ export class TicketService {
         page,
         limit,
         total: count,
+        filter,
       },
     };
   }

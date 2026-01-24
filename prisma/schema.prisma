@@ -93,6 +93,7 @@ model User {
   eventOrders          EventOrder[]
   coinCheckouts        CoinCheckout[]
   ticketCheckouts      TicketCheckout[]
+  userActivities       UserActivity[]
 
   @@map("users")
 }
@@ -117,27 +118,27 @@ model TicketCheckout {
   id         String   @id @default(cuid())
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
-  
-  user_id    String
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  items      TicketCheckoutItem[]
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  items TicketCheckoutItem[]
 
   @@map("ticket_checkouts")
 }
 
 model TicketCheckoutItem {
-  id                 String         @id @default(cuid())
-  created_at         DateTime       @default(now())
-  updated_at         DateTime       @default(now())
-  
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
   ticket_checkout_id String
   ticket_checkout    TicketCheckout @relation(fields: [ticket_checkout_id], references: [id], onDelete: Cascade)
-  
-  event_ticket_id    String
-  event_ticket       EventTicket    @relation(fields: [event_ticket_id], references: [id])
-  
-  quantity           Int            @default(1)
+
+  event_ticket_id String
+  event_ticket    EventTicket @relation(fields: [event_ticket_id], references: [id])
+
+  quantity Int @default(1)
 
   @@map("ticket_checkout_items")
 }
@@ -480,8 +481,8 @@ model CoinBundle {
   status      BundleStatus @default(Active)
   user_id     String?
 
-  user       User?       @relation(fields: [user_id], references: [id])
-  coinOrders CoinOrder[]
+  user              User?              @relation(fields: [user_id], references: [id])
+  coinOrders        CoinOrder[]
   coinCheckoutItems CoinCheckoutItem[]
 
   @@index([user_id])
@@ -497,26 +498,26 @@ enum TicketStatus {
 }
 
 model EventTicket {
-  id            String       @id @default(cuid())
-  created_at    DateTime     @default(now())
-  updated_at    DateTime     @default(now())
-  deleted_at    DateTime?
-  title         String
-  description   String?
-  about         String?
-  ticket_status TicketStatus @default(General)
-  included      String[]     @default([])
-  event_date    DateTime
-  location      String?
-  revenue       Int?         @default(0)
-  ticket_price  Int          @default(0)
-  total_sold    Int?         @default(0)
-  sold_limit    Int?
-  thumbnail     String?
-  status        BundleStatus @default(Active)
-  user_id       String?
-  user          User?        @relation(fields: [user_id], references: [id])
-  eventOrders   EventOrder[]
+  id                  String               @id @default(cuid())
+  created_at          DateTime             @default(now())
+  updated_at          DateTime             @default(now())
+  deleted_at          DateTime?
+  title               String
+  description         String?
+  about               String?
+  ticket_status       TicketStatus         @default(General)
+  included            String[]             @default([])
+  event_date          DateTime
+  location            String?
+  revenue             Int?                 @default(0)
+  ticket_price        Int                  @default(0)
+  total_sold          Int?                 @default(0)
+  sold_limit          Int?
+  thumbnail           String?
+  status              BundleStatus         @default(Active)
+  user_id             String?
+  user                User?                @relation(fields: [user_id], references: [id])
+  eventOrders         EventOrder[]
   ticketCheckoutItems TicketCheckoutItem[]
 
   @@index([user_id])
@@ -555,29 +556,29 @@ model CoinCheckout {
   id         String   @id @default(cuid())
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
-  
-  user_id    String
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
-  sugo_id    String
-  
-  items      CoinCheckoutItem[]
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  sugo_id String
+
+  items CoinCheckoutItem[]
 
   @@map("coin_checkouts")
 }
 
 model CoinCheckoutItem {
-  id               String       @id @default(cuid())
-  created_at       DateTime     @default(now())
-  updated_at       DateTime     @default(now())
-  
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
   coin_checkout_id String
   coin_checkout    CoinCheckout @relation(fields: [coin_checkout_id], references: [id], onDelete: Cascade)
-  
-  coin_bundle_id   String
-  coin_bundle      CoinBundle   @relation(fields: [coin_bundle_id], references: [id])
-  
-  quantity         Int          @default(1)
+
+  coin_bundle_id String
+  coin_bundle    CoinBundle @relation(fields: [coin_bundle_id], references: [id])
+
+  quantity Int @default(1)
 
   @@map("coin_checkout_items")
 }
@@ -601,6 +602,22 @@ model EventOrder {
   transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])
 
   @@map("event_orders")
+}
+
+model UserActivity {
+  id         String   @id @default(cuid())
+  created_at DateTime @default(now())
+
+  user_id String
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  activity_date DateTime @db.Date
+
+  // Unique constraint: একই user একই দিনে শুধু একবার count হবে
+  @@unique([user_id, activity_date])
+  @@index([activity_date])
+  @@index([user_id])
+  @@map("user_activities")
 }
 
 // this table stores example
