@@ -66,6 +66,11 @@ export class CoinController {
     return this.coinService.findAll(query);
   }
 
+  @Get('stats')
+  getStats() {
+    return this.coinService.getStats();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.coinService.findOne(id);

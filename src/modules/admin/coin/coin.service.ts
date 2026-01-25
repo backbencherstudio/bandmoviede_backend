@@ -22,7 +22,7 @@ export class CoinService {
     createCoinDto: CreateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
-    const { price, coin_amount, is_active } = createCoinDto;
+    const { price, coin_amount, is_active = true } = createCoinDto;
 
     if (price <= 0) {
       throw new BadRequestException('Price must be greater than or equal to 0');
@@ -80,6 +80,14 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle created successfully',
+      // data: {
+      //   ...coinBundle,
+      //   thumbnail: coinBundle.thumbnail
+      //     ? SojebStorage.url(
+      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+      //       )
+      //     : null,
+      // },
     };
   }
 
@@ -240,11 +248,10 @@ export class CoinService {
     if (!id) {
       throw new BadRequestException('Coin bundle id is required');
     }
-
     if (updateCoinDto.coin_amount && updateCoinDto.coin_amount < 750) {
       throw new BadRequestException('Coin amount must be at least 750');
     }
-    const { is_active, ...rest } = updateCoinDto;
+    const { is_active = true, ...rest } = updateCoinDto;
 
     const existing = await this.prisma.coinBundle.findUnique({
       where: { id, deleted_at: null },
@@ -275,9 +282,7 @@ export class CoinService {
       where: { id },
       data: {
         ...rest,
-        ...(is_active !== undefined
-          ? { status: is_active ? 'Active' : 'Inactive' }
-          : {}),
+        status: is_active ? 'Active' : 'Inactive',
         ...(fileName ? { thumbnail: fileName } : {}),
       },
       select: {
@@ -295,6 +300,14 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle updated successfully',
+      // data: {
+      //   ...coinBundle,
+      //   thumbnail: coinBundle.thumbnail
+      //     ? SojebStorage.url(
+      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+      //       )
+      //     : null,
+      // },
     };
   }
 
@@ -318,6 +331,44 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle deleted successfully',
+    };
+  }
+
+  async getStats() {
+    const totalCoinBundles = await this.prisma.coinBundle.count({
+      where: { deleted_at: null },
+    });
+    const totalActiveCoinBundles = await this.prisma.coinBundle.count({
+      where: { deleted_at: null, status: 'Active' },
+    });
+    const totalInactiveCoinBundles = await this.prisma.coinBundle.count({
+      where: { deleted_at: null, status: 'Inactive' },
+    });
+
+    const coinOrderStats = await this.prisma.$queryRaw<any[]>`
+      SELECT 
+        COALESCE(SUM(o.amount), 0) as "total_revenue",
+        COALESCE(SUM(o.quantity * cb.coin_amount), 0) as "total_coin_sold"
+      FROM coin_orders o
+      LEFT JOIN coin_bundles cb ON o.coin_bundle_id = cb.id
+      WHERE o.status = 'completed'
+    `;
+
+    const orderStats = coinOrderStats[0] || {
+      total_revenue: 0,
+      total_coin_sold: 0,
+    };
+
+    return {
+      success: true,
+      message: 'Coin stats fetched successfully',
+      data: {
+        total_coin_bundles: totalCoinBundles,
+        total_active_coin_bundles: totalActiveCoinBundles,
+        total_inactive_coin_bundles: totalInactiveCoinBundles,
+        total_coin_sold: Number(orderStats.total_coin_sold || 0),
+        total_revenue: Number(orderStats.total_revenue || 0),
+      },
     };
   }
 }
