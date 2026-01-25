@@ -615,7 +615,6 @@ model UserActivity {
 
   activity_date DateTime @db.Date
 
-  // Unique constraint: একই user একই দিনে শুধু একবার count হবে
   @@unique([user_id, activity_date])
   @@index([activity_date])
   @@index([user_id])

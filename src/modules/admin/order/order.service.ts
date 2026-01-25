@@ -76,9 +76,9 @@ export class OrderService {
           SELECT 
             o.id,
             o.user_id,
-            o.coin_bundle_id,
-            NULL AS event_ticket_id,
-            o.transaction_id,
+            o.coin_bundle_id, -- added
+            NULL AS event_ticket_id, -- placeholder for union
+            o.transaction_id, -- added
             o.amount AS price,
             o.status,
             o.quantity AS amount,
@@ -102,9 +102,9 @@ export class OrderService {
           SELECT 
             o.id,
             o.user_id,
-            NULL AS coin_bundle_id,
-            o.event_ticket_id,
-            o.transaction_id,
+            NULL AS coin_bundle_id, -- placeholder for union
+            o.event_ticket_id, -- added
+            o.transaction_id, -- added
             o.amount AS price,
             o.status,
             1 AS amount,
