@@ -23,12 +23,12 @@ export class AnalyticsService {
       SUM(amount) AS revenue
     FROM (
       SELECT created_at, amount FROM coin_orders
-      WHERE status = 'complete'
+      WHERE status = 'completed'
 
       UNION ALL
 
       SELECT created_at, amount FROM event_orders
-      WHERE status = 'complete'
+      WHERE status = 'completed'
     ) t
     WHERE created_at BETWEEN ${startDate} AND ${endDate}
     GROUP BY year, month
@@ -80,7 +80,7 @@ export class AnalyticsService {
     const [coinAgg, eventAgg] = await Promise.all([
       this.prisma.coinOrder.aggregate({
         where: {
-          status: 'complete',
+          status: 'completed',
           created_at: {
             gte: startOfYear,
             lte: endOfYear,
@@ -90,7 +90,7 @@ export class AnalyticsService {
       }),
       this.prisma.eventOrder.aggregate({
         where: {
-          status: 'complete',
+          status: 'completed',
           created_at: {
             gte: startOfYear,
             lte: endOfYear,
@@ -136,6 +136,7 @@ export class AnalyticsService {
           gte: startOfYear,
           lte: endOfYear,
         },
+        deleted_at: null,
       },
       select: {
         title: true,

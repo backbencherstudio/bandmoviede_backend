@@ -16,15 +16,15 @@ export class OverviewService {
       ticketRevenue,
     ] = await Promise.all([
       this.prisma.user.count({ where: { status: 1, deleted_at: null } }),
-      this.prisma.coinOrder.count({ where: { status: 'complete' } }),
-      this.prisma.eventOrder.count({ where: { status: 'complete' } }),
+      this.prisma.coinOrder.count({ where: { status: 'completed' } }),
+      this.prisma.eventOrder.count({ where: { status: 'completed' } }),
       this.prisma.coinOrder.aggregate({
         _sum: { amount: true },
-        where: { status: 'complete' },
+        where: { status: 'completed' },
       }),
       this.prisma.eventOrder.aggregate({
         _sum: { amount: true },
-        where: { status: 'complete' },
+        where: { status: 'completed' },
       }),
     ]);
     return {
@@ -73,7 +73,7 @@ export class OverviewService {
       `
       SELECT TO_CHAR(created_at, '${groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM'}') as date, SUM(amount) as revenue
       FROM coin_orders
-      WHERE status = 'complete' AND created_at >= $1
+      WHERE status = 'completed' AND created_at >= $1
       GROUP BY date
       ORDER BY date ASC
     `,
@@ -86,7 +86,7 @@ export class OverviewService {
       `
       SELECT TO_CHAR(created_at, '${groupBy === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM'}') as date, SUM(amount) as revenue
       FROM event_orders
-      WHERE status = 'complete' AND created_at >= $1
+      WHERE status = 'completed' AND created_at >= $1
       GROUP BY date
       ORDER BY date ASC
     `,

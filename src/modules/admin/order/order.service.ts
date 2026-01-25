@@ -76,9 +76,9 @@ export class OrderService {
           SELECT 
             o.id,
             o.user_id,
-            o.coin_bundle_id, -- added
-            NULL AS event_ticket_id, -- placeholder for union
-            o.transaction_id, -- added
+            o.coin_bundle_id,
+            NULL AS event_ticket_id,
+            o.transaction_id,
             o.amount AS price,
             o.status,
             o.quantity AS amount,
@@ -89,7 +89,8 @@ export class OrderService {
             NULL AS ticket_title,
             cb.thumbnail AS thumbnail,
             NULL AS ticket_number,
-            pt.reference_number AS payment_number
+            pt.reference_number AS payment_number,
+            NULL AS used -- Added placeholder
           FROM coin_orders o
           LEFT JOIN users u ON o.user_id = u.id
           LEFT JOIN coin_bundles cb ON o.coin_bundle_id = cb.id
@@ -101,9 +102,9 @@ export class OrderService {
           SELECT 
             o.id,
             o.user_id,
-            NULL AS coin_bundle_id, -- placeholder for union
-            o.event_ticket_id, -- added
-            o.transaction_id, -- added
+            NULL AS coin_bundle_id,
+            o.event_ticket_id,
+            o.transaction_id,
             o.amount AS price,
             o.status,
             1 AS amount,
@@ -114,7 +115,8 @@ export class OrderService {
             et.title AS ticket_title,
             et.thumbnail AS thumbnail,
             o.ticket_code AS ticket_number,
-            pt.reference_number AS payment_number
+            pt.reference_number AS payment_number,
+            o.used AS used -- Added used field
           FROM event_orders o
           LEFT JOIN users u ON o.user_id = u.id
           LEFT JOIN event_tickets et ON o.event_ticket_id = et.id
@@ -139,7 +141,8 @@ export class OrderService {
           'COIN' AS type,
           cb.name AS coin_name,
           cb.thumbnail AS thumbnail,
-          pt.reference_number AS payment_number
+          pt.reference_number AS payment_number,
+          NULL AS used -- Added placeholder
         FROM coin_orders o
         LEFT JOIN users u ON o.user_id = u.id
         LEFT JOIN coin_bundles cb ON o.coin_bundle_id = cb.id
@@ -164,7 +167,8 @@ export class OrderService {
           et.title AS ticket_title,
           et.thumbnail AS thumbnail,
           o.ticket_code AS ticket_number,
-          pt.reference_number AS payment_number
+          pt.reference_number AS payment_number,
+          o.used AS used -- Added used field
         FROM event_orders o
         LEFT JOIN users u ON o.user_id = u.id
         LEFT JOIN event_tickets et ON o.event_ticket_id = et.id
@@ -226,5 +230,25 @@ export class OrderService {
         filter: filter,
       },
     };
+  }
+
+  async updateTicketUsage(id: string, used: boolean) {
+    try {
+      const order = await this.prisma.eventOrder.update({
+        where: { id },
+        data: { used },
+      });
+
+      return {
+        success: true,
+        message: 'Ticket usage status updated successfully',
+        data: order,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update ticket usage status',
+      };
+    }
   }
 }

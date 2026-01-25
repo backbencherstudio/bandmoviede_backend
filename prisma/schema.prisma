@@ -597,7 +597,8 @@ model EventOrder {
   event_ticket    EventTicket @relation(fields: [event_ticket_id], references: [id])
 
   amount Int
-  status String @default("pending")
+  status String  @default("pending")
+  used   Boolean @default(false)
 
   transaction_id String?
   transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])
