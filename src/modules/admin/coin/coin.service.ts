@@ -80,14 +80,6 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle created successfully',
-      // data: {
-      //   ...coinBundle,
-      //   thumbnail: coinBundle.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-      //       )
-      //     : null,
-      // },
     };
   }
 
@@ -303,14 +295,6 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle updated successfully',
-      // data: {
-      //   ...coinBundle,
-      //   thumbnail: coinBundle.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-      //       )
-      //     : null,
-      // },
     };
   }
 
