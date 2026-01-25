@@ -498,10 +498,11 @@ enum TicketStatus {
 }
 
 model EventTicket {
-  id                  String               @id @default(cuid())
-  created_at          DateTime             @default(now())
-  updated_at          DateTime             @default(now())
-  deleted_at          DateTime?
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
   title               String
   description         String?
   about               String?
@@ -534,8 +535,8 @@ model CoinOrder {
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
-  user_id String
-  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   sugo_id String
 
@@ -588,8 +589,8 @@ model EventOrder {
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
 
-  user_id String
-  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   ticket_code     String?
   event_ticket_id String
@@ -613,7 +614,6 @@ model UserActivity {
 
   activity_date DateTime @db.Date
 
-  // Unique constraint: একই user একই দিনে শুধু একবার count হবে
   @@unique([user_id, activity_date])
   @@index([activity_date])
   @@index([user_id])
