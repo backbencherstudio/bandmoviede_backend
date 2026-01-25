@@ -66,6 +66,11 @@ export class TicketController {
     return this.ticketService.findAll(query);
   }
 
+  @Get('stats')
+  getStats() {
+    return this.ticketService.getStats();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ticketService.findOne(id);
