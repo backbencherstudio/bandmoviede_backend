@@ -13,13 +13,9 @@ import appConfig from 'src/config/app.config';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
 import { Prisma } from 'prisma/generated/client';
 
-
-
 @Injectable()
 export class TicketService {
-  constructor(
-    private prisma: PrismaService,
-  ) { }
+  constructor(private prisma: PrismaService) {}
   async create(
     createTicketDto: CreateTicketDto,
     userId: string,
@@ -91,8 +87,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-          )
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       },
     };
@@ -169,6 +165,7 @@ export class TicketService {
         included: true,
         ticket_price: true,
         status: true,
+        ticket_status: true,
         sold_limit: true,
         event_date: true,
         location: true,
@@ -188,8 +185,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-          )
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       },
     };
@@ -252,8 +249,8 @@ export class TicketService {
         ...ticket,
         thumbnail: ticket?.thumbnail
           ? SojebStorage.url(
-            appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-          )
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
           : null,
       },
     };
@@ -273,5 +270,4 @@ export class TicketService {
       message: 'Ticket deleted successfully',
     };
   }
-
 }
