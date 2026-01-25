@@ -54,9 +54,6 @@ export class OrderService {
 
     // Build search pattern
     const searchPattern = `%${search}%`;
-    const searchFilter = search
-      ? Prisma.sql`AND (LOWER(u.name) LIKE LOWER(${searchPattern}))`
-      : Prisma.empty;
 
     const coinSearchFilter = search
       ? Prisma.sql`AND (LOWER(u.name) LIKE LOWER(${searchPattern}) OR LOWER(cb.name) LIKE LOWER(${searchPattern}))`

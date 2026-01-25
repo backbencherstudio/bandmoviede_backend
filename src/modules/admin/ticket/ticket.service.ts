@@ -301,4 +301,51 @@ export class TicketService {
       message: 'Ticket deleted successfully',
     };
   }
+
+  async getStats() {
+    const [
+      totalTickets,
+      activeTickets,
+      inactiveTickets,
+      totalSold,
+      totalRevenue,
+      totalUpcoming,
+    ] = await Promise.all([
+      this.prisma.eventTicket.aggregate({
+        _sum: {
+          sold_limit: true,
+        },
+        where: { deleted_at: null },
+      }),
+      this.prisma.eventTicket.count({
+        where: { status: 'Active', deleted_at: null },
+      }),
+      this.prisma.eventTicket.count({
+        where: { status: 'Inactive', deleted_at: null },
+      }),
+      this.prisma.eventTicket.aggregate({
+        _sum: { total_sold: true },
+        where: { deleted_at: null },
+      }),
+      this.prisma.eventTicket.aggregate({
+        _sum: { revenue: true },
+        where: { deleted_at: null },
+      }),
+      this.prisma.eventTicket.count({
+        where: { event_date: { gte: new Date() }, deleted_at: null },
+      }),
+    ]);
+    return {
+      success: true,
+      message: 'Ticket stats fetched successfully',
+      data: {
+        total_tickets: totalTickets._sum.sold_limit || 0,
+        active_tickets: activeTickets || 0,
+        inactive_tickets: inactiveTickets || 0,
+        total_sold: totalSold._sum.total_sold || 0,
+        total_revenue: totalRevenue._sum.revenue || 0,
+        total_upcoming: totalUpcoming || 0,
+      },
+    };
+  }
 }

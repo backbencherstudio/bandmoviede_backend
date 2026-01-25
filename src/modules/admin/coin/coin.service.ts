@@ -335,24 +335,28 @@ export class CoinService {
   }
 
   async getStats() {
-    const totalCoinBundles = await this.prisma.coinBundle.count({
-      where: { deleted_at: null },
-    });
-    const totalActiveCoinBundles = await this.prisma.coinBundle.count({
-      where: { deleted_at: null, status: 'Active' },
-    });
-    const totalInactiveCoinBundles = await this.prisma.coinBundle.count({
-      where: { deleted_at: null, status: 'Inactive' },
-    });
-
-    const coinOrderStats = await this.prisma.$queryRaw<any[]>`
+    const [
+      totalCoinBundles,
+      totalActiveCoinBundles,
+      totalInactiveCoinBundles,
+      coinOrderStats,
+    ] = await Promise.all([
+      this.prisma.coinBundle.count({ where: { deleted_at: null } }),
+      this.prisma.coinBundle.count({
+        where: { deleted_at: null, status: 'Active' },
+      }),
+      this.prisma.coinBundle.count({
+        where: { deleted_at: null, status: 'Inactive' },
+      }),
+      this.prisma.$queryRaw<any[]>`
       SELECT 
         COALESCE(SUM(o.amount), 0) as "total_revenue",
         COALESCE(SUM(o.quantity * cb.coin_amount), 0) as "total_coin_sold"
       FROM coin_orders o
       LEFT JOIN coin_bundles cb ON o.coin_bundle_id = cb.id
       WHERE o.status = 'completed'
-    `;
+    `,
+    ]);
 
     const orderStats = coinOrderStats[0] || {
       total_revenue: 0,
@@ -363,9 +367,9 @@ export class CoinService {
       success: true,
       message: 'Coin stats fetched successfully',
       data: {
-        total_coin_bundles: totalCoinBundles,
-        total_active_coin_bundles: totalActiveCoinBundles,
-        total_inactive_coin_bundles: totalInactiveCoinBundles,
+        total_coin_bundles: Number(totalCoinBundles || 0),
+        total_active_coin_bundles: Number(totalActiveCoinBundles || 0),
+        total_inactive_coin_bundles: Number(totalInactiveCoinBundles || 0),
         total_coin_sold: Number(orderStats.total_coin_sold || 0),
         total_revenue: Number(orderStats.total_revenue || 0),
       },
