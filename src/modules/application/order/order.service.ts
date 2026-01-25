@@ -4,6 +4,7 @@ import {
   FindEventTicketsQueryDto,
 } from './dto/query-order.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma } from 'prisma/generated/client';
 
 @Injectable()
 export class OrderService {
@@ -93,25 +94,63 @@ export class OrderService {
 
   async findEventTickets(user_id: string, query: FindEventTicketsQueryDto) {
     if (!user_id) throw new UnauthorizedException('Unauthorized');
-    const page = query.page;
-    const limit = query.limit;
+
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const activeTickets = this.prisma.eventOrder.findMany({
-      where: {
-        user_id,
-        ...(query.status ? { event_ticket: { status: query.status } } : {}),
-      },
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const where: Prisma.EventOrderWhereInput = {
+      user_id,
+    };
+
+    if (query.status) {
+      if (query.status === 'Active') {
+        where.event_ticket = {
+          status: 'Active',
+          event_date: {
+            gte: todayStart,
+          },
+        };
+      } else if (query.status === 'Inactive') {
+        where.event_ticket = {
+          status: 'Inactive',
+          event_date: {
+            lt: todayStart,
+          },
+        };
+        where.used = true;
+      }
+    }
+
+    const tickets = await this.prisma.eventOrder.findMany({
+      where,
       skip,
       take: limit,
       orderBy: {
         created_at: 'desc',
       },
+      include: {
+        event_ticket: true,
+      },
     });
+
+    const total = await this.prisma.eventOrder.count({ where });
+
     return {
       success: true,
-      message: 'Active tickets retrieved successfully',
-      data: activeTickets,
+      message: 'Tickets retrieved successfully',
+      meta_data: {
+        page,
+        limit,
+        total,
+      },
+      data: tickets,
     };
   }
 }
