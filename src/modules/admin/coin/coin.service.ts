@@ -248,10 +248,7 @@ export class CoinService {
     if (!id) {
       throw new BadRequestException('Coin bundle id is required');
     }
-    if (updateCoinDto.coin_amount && updateCoinDto.coin_amount < 750) {
-      throw new BadRequestException('Coin amount must be at least 750');
-    }
-    const { is_active = true, ...rest } = updateCoinDto;
+    const { is_active, ...rest } = updateCoinDto;
 
     const existing = await this.prisma.coinBundle.findUnique({
       where: { id, deleted_at: null },
