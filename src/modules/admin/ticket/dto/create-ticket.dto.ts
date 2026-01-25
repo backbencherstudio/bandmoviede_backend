@@ -40,9 +40,13 @@ export class CreateTicketDto {
   ticket_price: number;
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   @IsBoolean()
-  is_active: boolean = true;
+  is_active?: boolean;
 
   @IsNotEmpty()
   @Transform(({ value }) => Number(value))

@@ -22,7 +22,7 @@ export class CoinService {
     createCoinDto: CreateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
-    const { price, coin_amount, is_active = true } = createCoinDto;
+    const { price, coin_amount, is_active } = createCoinDto;
 
     if (price <= 0) {
       throw new BadRequestException('Price must be greater than or equal to 0');
@@ -248,10 +248,11 @@ export class CoinService {
     if (!id) {
       throw new BadRequestException('Coin bundle id is required');
     }
+
     if (updateCoinDto.coin_amount && updateCoinDto.coin_amount < 750) {
       throw new BadRequestException('Coin amount must be at least 750');
     }
-    const { is_active = true, ...rest } = updateCoinDto;
+    const { is_active, ...rest } = updateCoinDto;
 
     const existing = await this.prisma.coinBundle.findUnique({
       where: { id, deleted_at: null },
@@ -282,7 +283,9 @@ export class CoinService {
       where: { id },
       data: {
         ...rest,
-        status: is_active ? 'Active' : 'Inactive',
+        ...(is_active !== undefined
+          ? { status: is_active ? 'Active' : 'Inactive' }
+          : {}),
         ...(fileName ? { thumbnail: fileName } : {}),
       },
       select: {

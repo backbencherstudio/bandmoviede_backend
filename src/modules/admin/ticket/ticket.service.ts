@@ -83,14 +83,14 @@ export class TicketService {
     return {
       success: true,
       message: 'Ticket created successfully',
-      // data: {
-      //   ...ticket,
-      //   thumbnail: ticket?.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-      //       )
-      //     : null,
-      // },
+      data: {
+        ...ticket,
+        thumbnail: ticket?.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
+          : null,
+      },
     };
   }
 
@@ -207,6 +207,7 @@ export class TicketService {
         included: true,
         ticket_price: true,
         status: true,
+        ticket_status: true,
         sold_limit: true,
         event_date: true,
         location: true,
@@ -286,14 +287,14 @@ export class TicketService {
     return {
       success: true,
       message: 'Ticket updated successfully',
-      // data: {
-      //   ...ticket,
-      //   thumbnail: ticket?.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-      //       )
-      //     : null,
-      // },
+      data: {
+        ...ticket,
+        thumbnail: ticket?.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
+          : null,
+      },
     };
   }
 
