@@ -83,14 +83,14 @@ export class TicketService {
     return {
       success: true,
       message: 'Ticket created successfully',
-      // data: {
-      //   ...ticket,
-      //   thumbnail: ticket?.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-      //       )
-      //     : null,
-      // },
+      data: {
+        ...ticket,
+        thumbnail: ticket?.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
+          : null,
+      },
     };
   }
 
@@ -287,14 +287,14 @@ export class TicketService {
     return {
       success: true,
       message: 'Ticket updated successfully',
-      // data: {
-      //   ...ticket,
-      //   thumbnail: ticket?.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-      //       )
-      //     : null,
-      // },
+      data: {
+        ...ticket,
+        thumbnail: ticket?.thumbnail
+          ? SojebStorage.url(
+              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+            )
+          : null,
+      },
     };
   }
 
