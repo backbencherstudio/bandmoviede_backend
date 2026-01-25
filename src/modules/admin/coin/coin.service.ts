@@ -27,10 +27,8 @@ export class CoinService {
     if (price <= 0) {
       throw new BadRequestException('Price must be greater than or equal to 0');
     }
-    if (coin_amount <= 0) {
-      throw new BadRequestException(
-        'Coin amount must be greater than or equal to 0',
-      );
+    if (coin_amount < 750) {
+      throw new BadRequestException('Coin amount must be at least 750');
     }
     let name = StringHelper.randomString(8).toUpperCase();
     let isNameExist = await this.prisma.coinBundle.findFirst({
@@ -82,14 +80,14 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle created successfully',
-      data: {
-        ...coinBundle,
-        thumbnail: coinBundle.thumbnail
-          ? SojebStorage.url(
-              appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-            )
-          : null,
-      },
+      // data: {
+      //   ...coinBundle,
+      //   thumbnail: coinBundle.thumbnail
+      //     ? SojebStorage.url(
+      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+      //       )
+      //     : null,
+      // },
     };
   }
 
@@ -97,7 +95,9 @@ export class CoinService {
     const { search, page = 1, limit = 10, filter = 'all' } = query;
     const skip = (page - 1) * limit;
     const take = limit;
-    const where: Prisma.CoinBundleWhereInput = {};
+    const where: Prisma.CoinBundleWhereInput = {
+      deleted_at: null,
+    };
 
     // Build date filter conditions
     const now = new Date();
@@ -208,7 +208,7 @@ export class CoinService {
       throw new BadRequestException('Coin bundle id is required');
     }
     const coinBundle = await this.prisma.coinBundle.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
       select: {
         id: true,
         name: true,
@@ -248,10 +248,13 @@ export class CoinService {
     if (!id) {
       throw new BadRequestException('Coin bundle id is required');
     }
+    if (updateCoinDto.coin_amount && updateCoinDto.coin_amount < 750) {
+      throw new BadRequestException('Coin amount must be at least 750');
+    }
     const { is_active = true, ...rest } = updateCoinDto;
 
     const existing = await this.prisma.coinBundle.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
     });
 
     if (!existing) {
@@ -297,14 +300,14 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle updated successfully',
-      data: {
-        ...coinBundle,
-        thumbnail: coinBundle.thumbnail
-          ? SojebStorage.url(
-              appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-            )
-          : null,
-      },
+      // data: {
+      //   ...coinBundle,
+      //   thumbnail: coinBundle.thumbnail
+      //     ? SojebStorage.url(
+      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+      //       )
+      //     : null,
+      // },
     };
   }
 
@@ -313,13 +316,18 @@ export class CoinService {
       throw new BadRequestException('Coin bundle id is required');
     }
     const existing = await this.prisma.coinBundle.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
     });
 
     if (!existing) {
       throw new NotFoundException('Coin bundle not found');
     }
-    await this.prisma.coinBundle.delete({ where: { id } });
+    await this.prisma.coinBundle.update({
+      where: { id },
+      data: {
+        deleted_at: new Date(),
+      },
+    });
     return {
       success: true,
       message: 'Coin bundle deleted successfully',

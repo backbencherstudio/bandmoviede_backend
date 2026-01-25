@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
 import { TicketStatus } from 'prisma/generated/enums';
 
@@ -35,6 +36,7 @@ export class CreateTicketDto {
   @IsNotEmpty()
   @Transform(({ value }) => Number(value))
   @IsNumber()
+  @Min(0, { message: 'Ticket price must be at least 0' })
   ticket_price: number;
 
   @IsOptional()
@@ -45,6 +47,7 @@ export class CreateTicketDto {
   @IsNotEmpty()
   @Transform(({ value }) => Number(value))
   @IsNumber()
+  @Min(1, { message: 'Sold limit must be at least 1' })
   sold_limit: number;
 
   @IsNotEmpty()

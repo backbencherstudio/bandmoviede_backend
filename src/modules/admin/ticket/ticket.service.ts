@@ -83,14 +83,14 @@ export class TicketService {
     return {
       success: true,
       message: 'Ticket created successfully',
-      data: {
-        ...ticket,
-        thumbnail: ticket?.thumbnail
-          ? SojebStorage.url(
-              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-            )
-          : null,
-      },
+      // data: {
+      //   ...ticket,
+      //   thumbnail: ticket?.thumbnail
+      //     ? SojebStorage.url(
+      //         appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+      //       )
+      //     : null,
+      // },
     };
   }
 
@@ -98,7 +98,7 @@ export class TicketService {
     const { search, page = 1, limit = 10, filter = 'all' } = query;
     const skip = (page - 1) * limit;
     const take = limit;
-    const where: Prisma.EventTicketWhereInput = {};
+    const where: Prisma.EventTicketWhereInput = { deleted_at: null };
 
     // Build date filter conditions
     const now = new Date();
@@ -198,7 +198,7 @@ export class TicketService {
       throw new BadRequestException('Ticket id is required');
     }
     const ticket = await this.prisma.eventTicket.findUnique({
-      where: { id },
+      where: { id, deleted_at: null },
       select: {
         id: true,
         title: true,
@@ -257,7 +257,7 @@ export class TicketService {
     }
 
     const ticket = await this.prisma.eventTicket.update({
-      where: { id },
+      where: { id, deleted_at: null },
       data: {
         ...rest,
         status: is_active ? 'Active' : 'Inactive',
@@ -286,14 +286,14 @@ export class TicketService {
     return {
       success: true,
       message: 'Ticket updated successfully',
-      data: {
-        ...ticket,
-        thumbnail: ticket?.thumbnail
-          ? SojebStorage.url(
-              appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
-            )
-          : null,
-      },
+      // data: {
+      //   ...ticket,
+      //   thumbnail: ticket?.thumbnail
+      //     ? SojebStorage.url(
+      //         appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+      //       )
+      //     : null,
+      // },
     };
   }
 
@@ -301,11 +301,16 @@ export class TicketService {
     if (!id) {
       throw new BadRequestException('Ticket id is required');
     }
-    const ticket = await this.prisma.eventTicket.findUnique({ where: { id } });
+    const ticket = await this.prisma.eventTicket.findUnique({
+      where: { id, deleted_at: null },
+    });
     if (!ticket) {
       throw new InternalServerErrorException('Ticket not found');
     }
-    await this.prisma.eventTicket.delete({ where: { id } });
+    await this.prisma.eventTicket.update({
+      where: { id },
+      data: { deleted_at: new Date() },
+    });
     return {
       success: true,
       message: 'Ticket deleted successfully',
