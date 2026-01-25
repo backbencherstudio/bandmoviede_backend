@@ -38,6 +38,7 @@ export class CreateTicketDto {
   ticket_price: number;
 
   @IsOptional()
+  @Transform(({ value }) => value === 'true')
   @IsBoolean()
   is_active: boolean = true;
 
