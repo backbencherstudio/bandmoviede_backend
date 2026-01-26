@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
+import { PaginationQueryDto } from './dto/query-analytics.dto';
 
 @Controller('admin/analytics')
 export class AnalyticsController {
@@ -16,7 +17,7 @@ export class AnalyticsController {
   }
 
   @Get('top-performing-events')
-  async getTopPerformingEvents() {
-    return this.analyticsService.getTopPerformingEvents();
+  async getTopPerformingEvents(@Query() query: PaginationQueryDto) {
+    return this.analyticsService.getTopPerformingEvents(query);
   }
 }

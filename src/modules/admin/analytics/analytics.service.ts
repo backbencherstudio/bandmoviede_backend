@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as dayjs from 'dayjs';
+import { PaginationQueryDto } from './dto/query-analytics.dto';
 
 @Injectable()
 export class AnalyticsService {
@@ -126,7 +127,9 @@ export class AnalyticsService {
     };
   }
 
-  async getTopPerformingEvents() {
+  async getTopPerformingEvents(query: PaginationQueryDto) {
+    const { page, limit } = query;
+    const skip = (page - 1) * limit;
     const startOfYear = dayjs().startOf('year').toDate();
     const endOfYear = dayjs().endOf('year').toDate();
 
@@ -149,11 +152,18 @@ export class AnalyticsService {
       orderBy: {
         total_sold: 'desc',
       },
+      skip,
+      take: limit,
     });
     return {
       success: true,
       message: 'Top performing events fetched successfully',
       data: topEvents,
+      meta_data: {
+        total: topEvents.length,
+        page,
+        limit,
+      },
     };
   }
 }
