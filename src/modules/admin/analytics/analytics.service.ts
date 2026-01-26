@@ -144,6 +144,7 @@ export class AnalyticsService {
         sold_limit: true,
         total_sold: true,
         ticket_price: true,
+        event_date: true,
       },
       orderBy: {
         total_sold: 'desc',
