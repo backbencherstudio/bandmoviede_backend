@@ -16,12 +16,16 @@ import appConfig from 'src/config/app.config';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 
 @Injectable()
 export class TicketService {
   constructor(
     private prisma: PrismaService,
     private readonly transactionRepository: TransactionRepository,
+    private readonly notificationRepository: NotificationRepository,
+    private readonly messageGateway: MessageGateway,
   ) {}
 
   // create(createTicketDto: CreateTicketDto) {
@@ -265,14 +269,57 @@ export class TicketService {
         return { transaction, createdOrders };
       });
 
+      // 5. Notifications
+      const ticketNames = ticketDetails.map((t) => t.ticket.title).join(', ');
+
+      const admins = await this.prisma.user.findMany({
+        where: { type: 'admin' },
+        select: { id: true },
+      });
+
+      if (admins && admins.length > 0) {
+        for (const admin of admins) {
+          const payload: any = {
+            sender_id: null,
+            receiver_id: admin.id,
+            text: `client ${user.name} purchase ticket ${ticketNames}`,
+            type: 'client_ticket_purchase',
+          };
+
+          const socketId = this.messageGateway.clients.get(admin.id);
+          if (socketId) {
+            this.messageGateway.server
+              .to(socketId)
+              .emit('clientTicketPurchase', payload);
+          }
+
+          await this.notificationRepository.createNotification(payload);
+        }
+      }
+
+      const userPayload: any = {
+        sender_id: null,
+        receiver_id: userId,
+        text: `You purchase ticket ${ticketNames} successfully`,
+        type: 'ticket_purchase',
+      };
+
+      await this.notificationRepository.createNotification(userPayload);
+      const userSocket = this.messageGateway.clients.get(userId);
+      if (userSocket) {
+        this.messageGateway.server
+          .to(userSocket)
+          .emit('paymentDone', userPayload);
+      }
+
       return {
         success: true,
         message: 'Ticket checkout successful',
-        // data: {
-        //   client_secret: paymentIntent.client_secret,
-        //   transaction_id: result.transaction.id,
-        //   orders: result.createdOrders.map((o) => o.id),
-        // },
+        data: {
+          client_secret: paymentIntent.client_secret,
+          transaction_id: result.transaction.id,
+          orders: result.createdOrders.map((o) => o.id),
+        },
       };
     } catch (error) {
       console.error(error);
@@ -303,10 +350,10 @@ export class TicketService {
       return {
         success: true,
         message: 'Ticket order created successfully',
-        // data: {
-        //   client_secret: result.data.client_secret,
-        //   order_id: result.data.orders[0],
-        // },
+        data: {
+          client_secret: result.data.client_secret,
+          order_id: result.data.orders[0],
+        },
       };
     } catch (error) {
       console.error(error);

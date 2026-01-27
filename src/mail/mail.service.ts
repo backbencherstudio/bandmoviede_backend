@@ -78,4 +78,74 @@ export class MailService {
       console.log(error);
     }
   }
+
+  async sendLowBalanceEmail(params: {
+    email: string;
+    name: string;
+    balance: number;
+    limit: number;
+  }) {
+    try {
+      // add to queue
+      await this.queue.add('sendLowBalanceEmail', {
+        to: params.email,
+        subject: 'Low Balance Alert',
+        template: './low-balance',
+        context: {
+          name: params.name,
+          balance: params.balance,
+          limit: params.limit,
+          appName: appConfig().app.name,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async sendCoinTransferSuccessEmail(params: {
+    email: string;
+    name: string;
+    amount: number;
+    sugoId: string;
+  }) {
+    try {
+      // add to queue
+      await this.queue.add('sendCoinTransferSuccessEmail', {
+        to: params.email,
+        subject: 'Coin Transfer Successful',
+        template: './coin-transfer-success',
+        context: {
+          name: params.name,
+          amount: params.amount,
+          sugoId: params.sugoId,
+          appName: appConfig().app.name,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  async sendTicketPurchaseEmail(params: {
+    email: string;
+    name: string;
+    tickets: { title: string; ticket_number: string }[];
+  }) {
+    try {
+      console.log('MailService: Adding to queue', params);
+      await this.queue.add('sendTicketPurchaseEmail', {
+        to: params.email,
+        subject: 'Ticket Purchase Successful',
+        template: './ticket-purchase',
+        context: {
+          name: params.name,
+          tickets: params.tickets,
+          appName: appConfig().app.name,
+        },
+      });
+      console.log('MailService: Added to queue successfully');
+    } catch (error) {
+      console.log('MailService Log:', error);
+    }
+  }
 }

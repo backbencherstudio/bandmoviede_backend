@@ -5,6 +5,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 import appConfig from 'src/config/app.config';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class OwnerService {
@@ -12,6 +13,7 @@ export class OwnerService {
     private readonly prisma: PrismaService,
     private readonly messageGateway: MessageGateway,
     private readonly notificationRepository: NotificationRepository,
+    private readonly mailService: MailService,
   ) {}
 
   // get owner info
@@ -51,7 +53,7 @@ export class OwnerService {
     }
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async handleCron() {
     const res = await this.findOwnerCoins();
 
@@ -66,6 +68,9 @@ export class OwnerService {
           },
           select: {
             id: true,
+            email: true,
+            first_name: true,
+            last_name: true,
           },
         });
 
@@ -84,12 +89,7 @@ export class OwnerService {
                 'owner_coin_low',
               );
 
-            if (hasSentToday) {
-              // console.log(
-              //   `Notification already sent to user ${admin.id} today`,
-              // );
-              continue;
-            }
+            // console.log('Sending notification to user', admin.id);
 
             const userSocketId = this.messageGateway.clients.get(admin.id);
 
@@ -99,9 +99,26 @@ export class OwnerService {
                 .emit('lowBalanceAlert', lowBalanceAlertPayload);
             }
 
+            if (hasSentToday) {
+              // console.log(
+              //   `Notification already sent to user ${admin.id} today`,
+              // );
+              continue;
+            }
+
             await this.notificationRepository.createNotification(
               lowBalanceAlertPayload,
             );
+
+            // send email
+            if (admin.email) {
+              await this.mailService.sendLowBalanceEmail({
+                email: admin.email,
+                name: `${admin.first_name || ''} ${admin.last_name || ''}`,
+                balance,
+                limit,
+              });
+            }
           }
         }
       }

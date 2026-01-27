@@ -1,6 +1,7 @@
 import { Controller, Post, Req, Headers } from '@nestjs/common';
 import { StripeService } from './stripe.service';
 import { Request } from 'express';
+import { MailService } from 'src/mail/mail.service';
 import { TransactionRepository } from '../../../common/repository/transaction/transaction.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -10,6 +11,7 @@ export class StripeController {
     private readonly stripeService: StripeService,
     private transactionRepository: TransactionRepository,
     private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
   ) {}
 
   @Post('webhook')
@@ -99,6 +101,59 @@ export class StripeController {
                 ticket_code: ticketCode,
               },
             });
+
+            console.log('Stripe Webhook: Accessing ticket_order email block');
+            const userId = paymentIntent.metadata['user_id'];
+            console.log('Stripe Webhook: userId from metadata:', userId);
+
+            if (userId) {
+              const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+              });
+              console.log(
+                'Stripe Webhook: User found:',
+                user ? user.email : 'No user',
+              );
+
+              const updatedOrders = await this.prisma.eventOrder.findMany({
+                where: {
+                  transaction: {
+                    reference_number: paymentIntent.id,
+                  },
+                },
+                include: {
+                  event_ticket: true,
+                },
+              });
+              console.log(
+                'Stripe Webhook: Updated orders count:',
+                updatedOrders.length,
+              );
+
+              if (user && updatedOrders.length > 0) {
+                const tickets = updatedOrders.map((order) => ({
+                  title: order.event_ticket.title,
+                  ticket_number: order.ticket_code,
+                }));
+                console.log(
+                  'Stripe Webhook: Sending email with tickets:',
+                  tickets,
+                );
+
+                await this.mailService.sendTicketPurchaseEmail({
+                  email: user.email,
+                  name: user.name,
+                  tickets: tickets,
+                });
+                console.log('Stripe Webhook: Email queued');
+              } else {
+                console.log(
+                  'Stripe Webhook: Skipping email - User or Orders missing',
+                );
+              }
+            } else {
+              console.log('Stripe Webhook: No userId in metadata');
+            }
           } else if (paymentIntent.metadata['type'] === 'ticket_checkout') {
             // Find all orders for this transaction
             const orders = await this.prisma.eventOrder.findMany({
@@ -139,6 +194,62 @@ export class StripeController {
                   ticket_code: ticketCode,
                 },
               });
+            }
+
+            // Send email for checkout
+            const userId = paymentIntent.metadata['user_id'];
+            console.log(
+              'Stripe Webhook (Checkout): userId from metadata:',
+              userId,
+            );
+
+            if (userId) {
+              const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+              });
+              console.log(
+                'Stripe Webhook (Checkout): User found:',
+                user ? user.email : 'No user',
+              );
+
+              const updatedOrders = await this.prisma.eventOrder.findMany({
+                where: {
+                  transaction: {
+                    reference_number: paymentIntent.id,
+                  },
+                },
+                include: {
+                  event_ticket: true,
+                },
+              });
+              console.log(
+                'Stripe Webhook (Checkout): Updated orders count:',
+                updatedOrders.length,
+              );
+
+              if (user && updatedOrders.length > 0) {
+                const tickets = updatedOrders.map((order) => ({
+                  title: order.event_ticket.title,
+                  ticket_number: order.ticket_code,
+                }));
+                console.log(
+                  'Stripe Webhook (Checkout): Sending email with tickets:',
+                  tickets,
+                );
+
+                await this.mailService.sendTicketPurchaseEmail({
+                  email: user.email,
+                  name: user.name,
+                  tickets: tickets,
+                });
+                console.log('Stripe Webhook (Checkout): Email queued');
+              } else {
+                console.log(
+                  'Stripe Webhook (Checkout): Skipping email - User or Orders missing',
+                );
+              }
+            } else {
+              console.log('Stripe Webhook (Checkout): No userId in metadata');
             }
           }
           break;
