@@ -37,6 +37,7 @@ export class CoinService {
       this.prisma.coinBundle.findMany({
         where: {
           status: 'Active',
+          deleted_at: null,
         },
         select: {
           id: true,
@@ -51,7 +52,12 @@ export class CoinService {
         skip: (query.page - 1) * query.limit,
         take: query.limit,
       }),
-      this.prisma.coinBundle.count(),
+      this.prisma.coinBundle.count({
+        where: {
+          status: 'Active',
+          deleted_at: null,
+        },
+      }),
     ]);
 
     const data = coinBundles.map((bundle) => {

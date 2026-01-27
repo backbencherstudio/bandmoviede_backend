@@ -40,6 +40,7 @@ export class TicketService {
       this.prisma.eventTicket.findMany({
         where: {
           status: 'Active',
+          deleted_at: null,
         },
         select: {
           id: true,
@@ -63,6 +64,7 @@ export class TicketService {
       this.prisma.eventTicket.count({
         where: {
           status: 'Active',
+          deleted_at: null,
         },
       }),
     ]);
