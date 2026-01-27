@@ -1,0 +1,18 @@
+<h1>Ticket Purchase Successful</h1>
+<p>Hello <%= name %>,</p>
+<p>Thank you for your purchase. Here are your ticket details:</p>
+
+<ul>
+    <% tickets.forEach(function(ticket) { %>
+        <li>
+            <strong>Title:</strong> <%= ticket.title %> <br />
+            <strong>Ticket Number:</strong> <%= ticket.ticket_number %>
+        </li>
+        <br />
+    <% }); %>
+</ul>
+
+<p>We hope you enjoy the event!</p>
+<br />
+<p>Regards,</p>
+<p><%= appName %></p>

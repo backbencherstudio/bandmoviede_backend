@@ -19,6 +19,7 @@ import { OwnerService } from 'src/modules/admin/owner/owner.service';
 import axios from 'axios';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { MessageGateway } from 'src/modules/chat/message/message.gateway';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class CoinService {
@@ -28,6 +29,7 @@ export class CoinService {
     private readonly ownerService: OwnerService,
     private readonly notificationRepository: NotificationRepository,
     private readonly messageGateway: MessageGateway,
+    private readonly mailService: MailService,
   ) {}
 
   async findAllCoinBundle(query: FindAllQueryDto) {
@@ -178,14 +180,14 @@ export class CoinService {
             const lowBalanceAlertPayload: any = {
               sender_id: null,
               receiver_id: admin.id,
-              text: `Owner coin balance is low: ${ownerCoins.data?.balance}. Limit: ${appConfig().sugo.ownerBalanceLimit}`,
-              type: 'owner_coin_low',
+              text: `Owner coin balance is low: ${ownerCoins.data?.balance}. Client required: ${appConfig().sugo.ownerBalanceLimit}`,
+              type: 'cross_owner_coin_balance',
             };
 
             const hasSentToday =
               await this.notificationRepository.hasTodayNotification(
                 admin.id,
-                'owner_coin_low',
+                'cross_owner_coin_balance',
               );
 
             if (hasSentToday) {
@@ -200,7 +202,7 @@ export class CoinService {
             if (userSocketId) {
               this.messageGateway.server
                 .to(userSocketId)
-                .emit('lowBalanceAlert', lowBalanceAlertPayload);
+                .emit('crossOwnerBalance', lowBalanceAlertPayload);
             }
 
             await this.notificationRepository.createNotification(
@@ -281,6 +283,59 @@ export class CoinService {
         },
       });
 
+      // send notification to admin
+      const admins = await this.prisma.user.findMany({
+        where: {
+          type: 'admin',
+        },
+        select: {
+          id: true,
+          email: true,
+          first_name: true,
+          last_name: true,
+        },
+      });
+
+      if (admins && admins.length > 0) {
+        for (const admin of admins) {
+          const coinPurchasePayload: any = {
+            sender_id: null,
+            receiver_id: admin.id,
+            text: `client ${user.name} purchase coin bundle ${coinBundle.name}`,
+            type: 'client_coin_purchase',
+          };
+
+          const userSocketId = this.messageGateway.clients.get(admin.id);
+
+          if (userSocketId) {
+            this.messageGateway.server
+              .to(userSocketId)
+              .emit('clientCoinPurchase', coinPurchasePayload);
+          }
+
+          await this.notificationRepository.createNotification(
+            coinPurchasePayload,
+          );
+        }
+      }
+
+      // sent client notification
+      const coinPurchasePayload: any = {
+        sender_id: null,
+        receiver_id: userId,
+        text: `You purchase coin bundle ${coinBundle.name} successfully. ${coinBundle.coin_amount} coin added to your account very soon`,
+        type: 'coin_purchase',
+      };
+
+      await this.notificationRepository.createNotification(coinPurchasePayload);
+      const clientSocketId = this.messageGateway.clients.get(userId);
+
+      if (clientSocketId) {
+        this.messageGateway.server
+          .to(clientSocketId)
+          .emit('paymentDone', coinPurchasePayload);
+      }
+
       // Update transaction with coin order id if needed, but the schema has transaction_id in CoinOrder,
       // and PaymentTransaction has coinOrders relation. So we are good.
       // However, my updated Repository has 'order_id' which is a string field in PaymentTransaction.
@@ -288,7 +343,7 @@ export class CoinService {
       // But I will skip that circular update for now to keep it simple, as the relation is established via `transaction_id` in CoinOrder.
 
       // Transfer coins to Sugo
-      await this.transferCoinsToSugo(sugo_id, totalCoinAmount);
+      await this.transferCoinsToSugo(sugo_id, totalCoinAmount, userId);
 
       return {
         success: true,
@@ -391,14 +446,14 @@ export class CoinService {
             const lowBalanceAlertPayload: any = {
               sender_id: null,
               receiver_id: admin.id,
-              text: `Owner coin balance is low: ${ownerBalance}. Limit: ${totalCoinAmount}`,
-              type: 'owner_coin_low',
+              text: `Owner coin balance is low: ${ownerBalance}. Client required: ${totalCoinAmount}`,
+              type: 'cross_owner_coin_balance',
             };
 
             const hasSentToday =
               await this.notificationRepository.hasTodayNotification(
                 admin.id,
-                'owner_coin_low',
+                'cross_owner_coin_balance',
               );
 
             if (hasSentToday) {
@@ -413,7 +468,7 @@ export class CoinService {
             if (userSocketId) {
               this.messageGateway.server
                 .to(userSocketId)
-                .emit('lowBalanceAlert', lowBalanceAlertPayload);
+                .emit('crossOwnerBalance', lowBalanceAlertPayload);
             }
 
             await this.notificationRepository.createNotification(
@@ -510,7 +565,7 @@ export class CoinService {
       });
 
       // Transfer coins to Sugo
-      await this.transferCoinsToSugo(sugo_id, totalCoinAmount);
+      await this.transferCoinsToSugo(sugo_id, totalCoinAmount, userId);
 
       return {
         success: true,
@@ -805,7 +860,11 @@ export class CoinService {
     }
   }
 
-  private async transferCoinsToSugo(sugoId: string, amount: number) {
+  private async transferCoinsToSugo(
+    sugoId: string,
+    amount: number,
+    userId: string,
+  ) {
     const url = appConfig().sugo.coinTransferUrl;
     const sellerId = appConfig().sugo.ownerId;
 
@@ -824,22 +883,206 @@ export class CoinService {
 
       const result = await axios.post(url, payload);
 
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
+
       // Handle 80002 code: Owner balance not enough
       // {"rspHead":{"code":0, "prompt":""}, "balance":"290"}
       const responseData = result.data;
-      if (responseData?.rspHead?.code === 80002) {
+      if (responseData?.rspHead?.code === 7) {
         console.warn(
-          'Owner coin balance low (Code 80002). Locking system and starting retry mechanism.',
+          'Owner coin balance low (Code 7). Locking system and starting retry mechanism.',
         );
         this.isSystemLocked = true;
         this.retryQueue.push({ sugoId, amount });
         this.startRetryMechanism();
       }
+
+      if (responseData?.rspHead?.code === 2) {
+        console.warn(
+          'Inner server error (Code 2). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = true;
+        this.retryQueue.push({ sugoId, amount });
+        this.startRetryMechanism();
+      }
+
+      if (responseData?.rspHead?.code === 0) {
+        this.isSystemLocked = false;
+
+        // sent client notification
+        const coinPurchasePayload: any = {
+          sender_id: null,
+          receiver_id: userId,
+          text: `Your coin ${amount} is successfully transferred to your Sugo account ${sugoId}`,
+          type: 'client_coin_purchase',
+        };
+
+        this.notificationRepository.createNotification(coinPurchasePayload);
+
+        const userSocketId = this.messageGateway.clients.get(userId);
+
+        if (userSocketId) {
+          this.messageGateway.server
+            .to(userSocketId)
+            .emit('cointTransferDone', coinPurchasePayload);
+        }
+
+        // send email
+        if (user && user.email) {
+          await this.mailService.sendCoinTransferSuccessEmail({
+            email: user.email,
+            name: user.name || '',
+            amount,
+            sugoId,
+          });
+        }
+
+        return {
+          success: true,
+          message: 'Coins transferred to Sugo successfully',
+        };
+      }
+
+      if (
+        responseData?.rspHead?.code === 20308 ||
+        responseData?.rspHead?.code === 20601 ||
+        responseData?.rspHead?.code === 80003
+      ) {
+        console.warn(
+          'Invalid request (Code 20308 || 20601 || 80003). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(userId, 'Invalid request', 'coinTransferFailed');
+        return {
+          success: true,
+          message: 'Invalid request',
+        };
+      }
+
+      if (responseData?.rspHead?.code === 80004) {
+        console.warn(
+          'User is banned (Code 80004). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(userId, 'User is banned', 'coinTransferFailed');
+        return {
+          success: true,
+          message: 'User is banned',
+        };
+      }
+
+      if (responseData?.rspHead?.code === 80002) {
+        console.warn(
+          'Not Valid Recharge coin amount (Code 80002). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(
+          userId,
+          'Not Valid Recharge coin amount',
+          'coinTransferFailed',
+        );
+        return {
+          success: true,
+          message: 'Not Valid Recharge coin amount',
+        };
+      }
+
+      if (responseData?.rspHead?.code === 80001) {
+        console.warn(
+          'Cross religion transfer not allowed (Code 80001). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(
+          userId,
+          'Cross religion transfer not allowed',
+          'coinTransferFailed',
+        );
+        return {
+          success: true,
+          message: 'Cross religion transfer not allowed',
+        };
+      }
+
+      if (responseData?.rspHead?.code === 3) {
+        console.warn(
+          'Invalid parameters (Code 3). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(
+          userId,
+          'Invalid parameters',
+          'coinTransferFailed',
+        );
+        return {
+          success: true,
+          message: 'Invalid parameters',
+        };
+      }
+
+      if (responseData?.rspHead?.code === 5) {
+        console.warn(
+          'Invalid parameters (Code 5). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(
+          userId,
+          'Invalid parameters',
+          'coinTransferFailed',
+        );
+        return {
+          success: true,
+          message: 'Invalid parameters',
+        };
+      }
+
+      if (responseData?.rspHead?.code === 45) {
+        console.warn(
+          'Invalid request (Code 45). Locking system and starting retry mechanism.',
+        );
+        this.isSystemLocked = false;
+        await this.notifyUser(
+          userId,
+          'This is not allowed for safety',
+          'coinTransferFailed',
+        );
+        return {
+          success: true,
+          message: 'This is not allowed for safety',
+        };
+      }
+
+      return {
+        success: false,
+        message: 'Failed to transfer coins to Sugo',
+      };
     } catch (error) {
       console.error(
         'Failed to transfer coins to Sugo:',
         error.response?.data || error.message,
       );
+    }
+  }
+
+  private async notifyUser(userId: string, message: string, eventName: string) {
+    const payload: any = {
+      sender_id: null,
+      receiver_id: userId,
+      text: message,
+      type: 'client_coin_purchase',
+    };
+
+    await this.notificationRepository.createNotification(payload);
+    const userSocketId = this.messageGateway.clients.get(userId);
+
+    if (userSocketId) {
+      this.messageGateway.server.to(userSocketId).emit(eventName, payload);
     }
   }
 

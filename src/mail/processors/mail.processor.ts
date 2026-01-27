@@ -55,6 +55,33 @@ export class MailProcessor extends WorkerHost {
             context: job.data.context,
           });
           break;
+        case 'sendLowBalanceEmail':
+          this.logger.log('Sending low balance email');
+          await this.mailerService.sendMail({
+            to: job.data.to,
+            subject: job.data.subject,
+            template: job.data.template,
+            context: job.data.context,
+          });
+          break;
+        case 'sendCoinTransferSuccessEmail':
+          this.logger.log('Sending coin transfer success email');
+          await this.mailerService.sendMail({
+            to: job.data.to,
+            subject: job.data.subject,
+            template: job.data.template,
+            context: job.data.context,
+          });
+          break;
+        case 'sendTicketPurchaseEmail':
+          this.logger.log('Sending ticket purchase email');
+          await this.mailerService.sendMail({
+            to: job.data.to,
+            subject: job.data.subject,
+            template: job.data.template,
+            context: job.data.context,
+          });
+          break;
         default:
           this.logger.log('Unknown job name');
           return;
