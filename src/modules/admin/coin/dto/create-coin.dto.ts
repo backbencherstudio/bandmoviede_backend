@@ -22,7 +22,11 @@ export class CreateCoinDto {
   coin_amount: number;
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   @IsBoolean()
   is_active?: boolean;
 }
