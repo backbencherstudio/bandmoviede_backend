@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as dayjs from 'dayjs';
 import { PaginationQueryDto } from './dto/query-analytics.dto';
+import { Prisma } from 'prisma/generated/client';
 
 @Injectable()
 export class AnalyticsService {
@@ -163,6 +164,91 @@ export class AnalyticsService {
         total: topEvents.length,
         page,
         limit,
+      },
+    };
+  }
+
+  async getStats() {
+    const dayStart = dayjs().startOf('day').toDate();
+    const dayEnd = dayjs().endOf('day').toDate();
+    const monthStart = dayjs().startOf('month').toDate();
+    const monthEnd = dayjs().endOf('month').toDate();
+
+    const [
+      dailyActiveUsers,
+      monthlyActiveUsers,
+      monthlyRevenueCoin,
+      monthlyRevenueEvent,
+      monthlyCoinOrders,
+      monthlyEventOrders,
+    ] = await Promise.all([
+      this.prisma.userActivity.count({
+        where: {
+          activity_date: { gte: dayStart, lte: dayEnd },
+          NOT: { user: { type: 'admin' } },
+        },
+      }),
+
+      this.prisma.userActivity
+        .groupBy({
+          by: ['user_id'],
+          where: {
+            activity_date: { gte: monthStart, lte: monthEnd },
+            NOT: { user: { type: 'admin' } },
+          },
+        })
+        .then((res) => res.length),
+
+      this.prisma.coinOrder.aggregate({
+        where: {
+          status: 'completed',
+          created_at: { gte: monthStart, lte: monthEnd },
+        },
+        _sum: { amount: true },
+      }),
+
+      this.prisma.eventOrder.aggregate({
+        where: {
+          status: 'completed',
+          created_at: { gte: monthStart, lte: monthEnd },
+        },
+        _sum: { amount: true },
+      }),
+
+      this.prisma.coinOrder.count({
+        where: {
+          status: 'completed',
+          created_at: { gte: monthStart, lte: monthEnd },
+        },
+      }),
+
+      this.prisma.eventOrder.count({
+        where: {
+          status: 'completed',
+          created_at: { gte: monthStart, lte: monthEnd },
+        },
+      }),
+    ]);
+
+    const monthlyRevenue =
+      (monthlyRevenueCoin._sum.amount ?? 0) +
+      (monthlyRevenueEvent._sum.amount ?? 0);
+
+    const monthlyOrderPlaced = monthlyCoinOrders + monthlyEventOrders;
+
+    const conversionRate =
+      monthlyActiveUsers > 0
+        ? (monthlyOrderPlaced / monthlyActiveUsers) * 100
+        : 0;
+
+    return {
+      success: true,
+      message: 'Stats fetched successfully',
+      data: {
+        daily_active_users: dailyActiveUsers,
+        monthly_active_users: monthlyActiveUsers,
+        monthly_revenue: monthlyRevenue,
+        conversion_rate: Number(conversionRate.toFixed(2)),
       },
     };
   }

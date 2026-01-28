@@ -20,4 +20,9 @@ export class AnalyticsController {
   async getTopPerformingEvents(@Query() query: PaginationQueryDto) {
     return this.analyticsService.getTopPerformingEvents(query);
   }
+
+  @Get('stats')
+  async getStats() {
+    return this.analyticsService.getStats();
+  }
 }
