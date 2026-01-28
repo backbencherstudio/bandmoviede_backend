@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { CreateOverviewDto } from './dto/create-overview.dto';
-import { UpdateOverviewDto } from './dto/update-overview.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as dayjs from 'dayjs';
+import { OwnerService } from 'src/modules/admin/owner/owner.service';
 
 @Injectable()
 export class OverviewService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ownerService: OwnerService,
+  ) {}
   async getStats() {
     const [
       totalActiveUsers,
@@ -27,6 +29,7 @@ export class OverviewService {
         where: { status: 'completed' },
       }),
     ]);
+    const coinBalanceRes = await this.ownerService.findOwnerCoins();
     return {
       success: true,
       message: 'Stats fetched successfully',
@@ -36,6 +39,7 @@ export class OverviewService {
         total_ticket_sold: totalTicketSold,
         total_revenue:
           (coinRevenue._sum.amount ?? 0) + (ticketRevenue._sum.amount ?? 0),
+        coin_balance: +coinBalanceRes?.data?.balance || 0,
       },
     };
   }
