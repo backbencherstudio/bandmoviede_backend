@@ -561,7 +561,7 @@ model CoinCheckout {
   user_id String
   user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  sugo_id String
+  sugo_id String?
 
   items CoinCheckoutItem[]
 

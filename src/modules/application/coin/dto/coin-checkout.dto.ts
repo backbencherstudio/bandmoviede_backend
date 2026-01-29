@@ -23,10 +23,10 @@ export class CoinCheckoutItemDto {
 }
 
 export class CreateCoinCheckoutDto {
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @IsString()
-  @IsNotEmpty()
-  sugo_id: string;
+  @IsOptional()
+  sugo_id?: string;
 
   @ApiProperty({ type: [CoinCheckoutItemDto] })
   @IsArray()
