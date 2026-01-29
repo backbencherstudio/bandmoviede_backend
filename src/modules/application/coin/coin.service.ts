@@ -394,15 +394,15 @@ export class CoinService {
           bundle_id: item.coin_bundle_id,
           quantity: item.quantity,
         }));
-        sugo_id = draft.sugo_id;
       } else {
         if (!body.items || body.items.length === 0) {
           throw new BadRequestException('No coin bundles provided');
         }
-        if (!body.sugo_id) {
-          throw new BadRequestException('Sugo ID is required');
-        }
         items = body.items;
+      }
+
+      if (!sugo_id) {
+        throw new BadRequestException('Sugo ID is required');
       }
 
       // 1. Validate all bundles and calculate total amount
@@ -937,7 +937,7 @@ export class CoinService {
         if (userSocketId) {
           this.messageGateway.server
             .to(userSocketId)
-            .emit('cointTransferDone', coinPurchasePayload);
+            .emit('coinTransferDone', coinPurchasePayload);
         }
 
         // send email
