@@ -3,8 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateTicketDto } from './dto/create-ticket.dto';
-import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
 import { CheckoutTicketDto } from './dto/checkout-ticket.dto';
 import {
@@ -51,6 +49,7 @@ export class TicketService {
           sold_limit: true,
           total_sold: true,
           event_date: true,
+          ticket_status: true,
           location: true,
           status: true,
           created_at: true,
@@ -106,6 +105,7 @@ export class TicketService {
         ticket_price: true,
         thumbnail: true,
         sold_limit: true,
+        ticket_status: true,
         total_sold: true,
         event_date: true,
         location: true,

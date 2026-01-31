@@ -179,8 +179,8 @@ export class AnalyticsService {
       monthlyActiveUsers,
       monthlyRevenueCoin,
       monthlyRevenueEvent,
-      monthlyCoinOrders,
-      monthlyEventOrders,
+      coinOrderUsers,
+      eventOrderUsers,
     ] = await Promise.all([
       this.prisma.userActivity.count({
         where: {
@@ -215,14 +215,16 @@ export class AnalyticsService {
         _sum: { amount: true },
       }),
 
-      this.prisma.coinOrder.count({
+      this.prisma.coinOrder.groupBy({
+        by: ['user_id'] as Prisma.CoinOrderScalarFieldEnum[],
         where: {
           status: 'completed',
           created_at: { gte: monthStart, lte: monthEnd },
         },
       }),
 
-      this.prisma.eventOrder.count({
+      this.prisma.eventOrder.groupBy({
+        by: ['user_id'] as Prisma.EventOrderScalarFieldEnum[],
         where: {
           status: 'completed',
           created_at: { gte: monthStart, lte: monthEnd },
@@ -234,11 +236,14 @@ export class AnalyticsService {
       (monthlyRevenueCoin._sum.amount ?? 0) +
       (monthlyRevenueEvent._sum.amount ?? 0);
 
-    const monthlyOrderPlaced = monthlyCoinOrders + monthlyEventOrders;
+    const monthlyOrderingUsers = new Set([
+      ...coinOrderUsers.map((u) => u.user_id),
+      ...eventOrderUsers.map((u) => u.user_id),
+    ]).size;
 
     const conversionRate =
       monthlyActiveUsers > 0
-        ? (monthlyOrderPlaced / monthlyActiveUsers) * 100
+        ? Number(((monthlyOrderingUsers / monthlyActiveUsers) * 100).toFixed(2))
         : 0;
 
     return {
@@ -248,7 +253,7 @@ export class AnalyticsService {
         daily_active_users: dailyActiveUsers,
         monthly_active_users: monthlyActiveUsers,
         monthly_revenue: monthlyRevenue,
-        conversion_rate: Number(conversionRate.toFixed(2)),
+        conversion_rate: conversionRate,
       },
     };
   }

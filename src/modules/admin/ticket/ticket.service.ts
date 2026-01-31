@@ -158,6 +158,7 @@ export class TicketService {
           status: true,
           sold_limit: true,
           event_date: true,
+          ticket_status: true,
           revenue: true,
           total_sold: true,
           created_at: true,
