@@ -354,10 +354,10 @@ export class CoinService {
       return {
         success: true,
         message: 'Coin order created successfully',
-        // data: {
-        //   client_secret: paymentIntent.client_secret,
-        //   order_id: coinOrder.id,
-        // },
+        data: {
+          client_secret: paymentIntent.client_secret,
+          order_id: coinOrder.id,
+        },
       };
     } catch (error) {
       return {
@@ -576,11 +576,11 @@ export class CoinService {
       return {
         success: true,
         message: 'Oder payment successful',
-        // data: {
-        //   client_secret: paymentIntent.client_secret,
-        //   transaction_id: result.transaction.id,
-        //   orders: result.createdOrders.map((o) => o.id),
-        // },
+        data: {
+          client_secret: paymentIntent.client_secret,
+          transaction_id: result.transaction.id,
+          orders: result.createdOrders.map((o) => o.id),
+        },
       };
     } catch (error) {
       if (
