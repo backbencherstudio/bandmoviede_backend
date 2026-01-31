@@ -129,6 +129,10 @@ export class OrderService {
           {
             event_ticket: {
               status: 'Inactive',
+            },
+          },
+          {
+            event_ticket: {
               event_date: {
                 lt: todayStart,
               },
