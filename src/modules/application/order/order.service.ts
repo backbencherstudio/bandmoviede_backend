@@ -111,20 +111,33 @@ export class OrderService {
 
     if (query.status) {
       if (query.status === 'Active') {
-        where.event_ticket = {
-          status: 'Active',
-          event_date: {
-            gte: todayStart,
+        where.AND = [
+          {
+            event_ticket: {
+              status: 'Active',
+              event_date: {
+                gte: todayStart,
+              },
+            },
           },
-        };
+          {
+            used: false,
+          },
+        ];
       } else if (query.status === 'Inactive') {
-        where.event_ticket = {
-          status: 'Inactive',
-          event_date: {
-            lt: todayStart,
+        where.OR = [
+          {
+            event_ticket: {
+              status: 'Inactive',
+              event_date: {
+                lt: todayStart,
+              },
+            },
           },
-        };
-        where.used = true;
+          {
+            used: true,
+          },
+        ];
       }
     }
 
