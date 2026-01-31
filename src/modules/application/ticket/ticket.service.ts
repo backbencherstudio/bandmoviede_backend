@@ -3,8 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateTicketDto } from './dto/create-ticket.dto';
-import { UpdateTicketDto } from './dto/update-ticket.dto';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
 import { CheckoutTicketDto } from './dto/checkout-ticket.dto';
 import {

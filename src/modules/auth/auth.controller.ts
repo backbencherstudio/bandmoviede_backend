@@ -183,7 +183,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Patch('update')
   @UseInterceptors(
-    FileInterceptor('image', {
+    FileInterceptor('avatar', {
       // storage: diskStorage({
       //   destination:
       //     appConfig().storageUrl.rootUrl + appConfig().storageUrl.avatar,
@@ -201,11 +201,11 @@ export class AuthController {
   async updateUser(
     @Req() req: Request,
     @Body() data: UpdateUserDto,
-    @UploadedFile() image: Express.Multer.File,
+    @UploadedFile() avatar: Express.Multer.File,
   ) {
     try {
       const user_id = req.user.userId;
-      const response = await this.authService.updateUser(user_id, data, image);
+      const response = await this.authService.updateUser(user_id, data, avatar);
       return response;
     } catch (error) {
       return {

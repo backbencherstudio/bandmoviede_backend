@@ -25,7 +25,7 @@ export class AuthService {
     private userRepository: UserRepository,
     private ucodeRepository: UcodeRepository,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
+  ) {}
 
   async me(userId: string) {
     try {
@@ -82,7 +82,7 @@ export class AuthService {
   async updateUser(
     userId: string,
     updateUserDto: UpdateUserDto,
-    image?: Express.Multer.File,
+    avatar?: Express.Multer.File,
   ) {
     try {
       const data: any = {};
@@ -122,7 +122,7 @@ export class AuthService {
       if (updateUserDto.date_of_birth) {
         data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
       }
-      if (image) {
+      if (avatar) {
         // delete old image from storage
         const oldImage = await this.prisma.user.findFirst({
           where: { id: userId },
@@ -135,10 +135,10 @@ export class AuthService {
         }
 
         // upload file
-        const fileName = `${StringHelper.randomString()}${image.originalname}`;
+        const fileName = `${StringHelper.randomString()}${avatar.originalname}`;
         await SojebStorage.put(
           appConfig().storageUrl.avatar + fileName,
-          image.buffer,
+          avatar.buffer,
         );
 
         data.avatar = fileName;
