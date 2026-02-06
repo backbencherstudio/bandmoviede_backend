@@ -874,6 +874,9 @@ export class CoinService {
     const url = appConfig().sugo.coinTransferUrl;
     const sellerId = appConfig().sugo.ownerId;
 
+    console.log('url', url);
+    console.log('sellerId', sellerId);
+
     if (!url || !sellerId) {
       console.warn('Sugo coin transfer URL or Seller ID not configured');
       return;
@@ -889,6 +892,10 @@ export class CoinService {
 
       const result = await axios.post(url, payload);
 
+      console.log('Sugo Response Status:', result.status);
+      const responseData = result.data;
+      console.log('Sugo Response Data:', responseData);
+
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -900,7 +907,6 @@ export class CoinService {
 
       // Handle 80002 code: Owner balance not enough
       // {"rspHead":{"code":0, "prompt":""}, "balance":"290"}
-      const responseData = result.data;
       if (responseData?.rspHead?.code === 7) {
         console.warn(
           'Owner coin balance low (Code 7). Locking system and starting retry mechanism.',
@@ -1016,21 +1022,7 @@ export class CoinService {
         };
       }
 
-      if (responseData?.rspHead?.code === 3) {
-        console.warn(
-          'Invalid parameters (Code 3). Locking system and starting retry mechanism.',
-        );
-        this.isSystemLocked = false;
-        await this.notifyUser(
-          userId,
-          'Invalid parameters',
-          'coinTransferFailed',
-        );
-        return {
-          success: true,
-          message: 'Invalid parameters',
-        };
-      }
+      // Code 3 logic moved to catch block as it comes with error response
 
       if (responseData?.rspHead?.code === 5) {
         console.warn(
@@ -1069,9 +1061,28 @@ export class CoinService {
         message: 'Failed to transfer coins to Sugo',
       };
     } catch (error) {
+      const responseData = error.response?.data;
+      if (responseData?.code === 3) {
+        console.warn(
+          'Invalid parameters (Code 3). Locking system and starting retry mechanism.',
+        );
+
+        this.isSystemLocked = false;
+        await this.notifyUser(
+          userId,
+          'Invalid parameters',
+          'coinTransferFailed',
+        );
+
+        return {
+          success: true,
+          message: 'Invalid parameters',
+        };
+      }
+
       console.error(
         'Failed to transfer coins to Sugo:',
-        error.response?.data || error.message,
+        responseData || error.message,
       );
     }
   }
