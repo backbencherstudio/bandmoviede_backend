@@ -1,0 +1,19 @@
+<h1>New Contact Inquiry</h1>
+<p>Hello Admin,</p>
+<p>You have received a new contact inquiry.</p>
+
+<h3>Details:</h3>
+<ul>
+  <li><strong>Name:</strong> <%= name %></li>
+  <li><strong>Email:</strong> <%= email %></li>
+  <li><strong>Subject:</strong> <%= subject %></li>
+  <% if (phone_number) { %>
+  <li><strong>Phone Number:</strong> <%= phone_number %></li>
+  <% } %>
+</ul>
+
+<h3>Message:</h3>
+<p><%= message %></p>
+<br />
+<p>Regards,</p>
+<p><%= appName %></p>

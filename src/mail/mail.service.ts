@@ -148,4 +148,37 @@ export class MailService {
       console.log('MailService Log:', error);
     }
   }
+
+  async sendContactNotificationToAdmin(params: {
+    emails: string[];
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    phone_number: string;
+  }) {
+    try {
+      if (!params.emails || params.emails.length === 0) return;
+
+      const to = params.emails[0];
+      const cc = params.emails.length > 1 ? params.emails.slice(1) : [];
+
+      await this.queue.add('sendContactNotificationToAdmin', {
+        to: to,
+        cc: cc,
+        subject: `New Contact Inquiry: ${params.subject}`,
+        template: './admin-contact-notification',
+        context: {
+          name: params.name,
+          email: params.email,
+          subject: params.subject,
+          message: params.message,
+          phone_number: params.phone_number || null,
+          appName: appConfig().app.name,
+        },
+      });
+    } catch (error) {
+      console.log('MailService Log:', error);
+    }
+  }
 }

@@ -386,8 +386,8 @@ model Contact {
   updated_at DateTime  @default(now())
   deleted_at DateTime?
 
-  first_name   String?
-  last_name    String?
+  name         String?
+  subject      String?
   email        String?
   phone_number String?
   message      String?

@@ -11,11 +11,11 @@ export class ContactService {
   async create(createContactDto: CreateContactDto) {
     try {
       const data = {};
-      if (createContactDto.first_name) {
-        data['first_name'] = createContactDto.first_name;
+      if (createContactDto.name) {
+        data['name'] = createContactDto.name;
       }
-      if (createContactDto.last_name) {
-        data['last_name'] = createContactDto.last_name;
+      if (createContactDto.subject) {
+        data['subject'] = createContactDto.subject;
       }
       if (createContactDto.email) {
         data['email'] = createContactDto.email;
@@ -50,8 +50,8 @@ export class ContactService {
       const whereClause = {};
       if (q) {
         whereClause['OR'] = [
-          { first_name: { contains: q, mode: 'insensitive' } },
-          { last_name: { contains: q, mode: 'insensitive' } },
+          { name: { contains: q, mode: 'insensitive' } },
+          { subject: { contains: q, mode: 'insensitive' } },
           { email: { contains: q, mode: 'insensitive' } },
           { phone_number: { contains: q, mode: 'insensitive' } },
         ];
@@ -63,8 +63,8 @@ export class ContactService {
       const contacts = await this.prisma.contact.findMany({
         select: {
           id: true,
-          first_name: true,
-          last_name: true,
+          name: true,
+          subject: true,
           email: true,
           phone_number: true,
           message: true,
@@ -88,8 +88,8 @@ export class ContactService {
         where: { id },
         select: {
           id: true,
-          first_name: true,
-          last_name: true,
+          name: true,
+          subject: true,
           email: true,
           phone_number: true,
           message: true,
@@ -110,11 +110,11 @@ export class ContactService {
   async update(id: string, updateContactDto: UpdateContactDto) {
     try {
       const data = {};
-      if (updateContactDto.first_name) {
-        data['first_name'] = updateContactDto.first_name;
+      if (updateContactDto.name) {
+        data['name'] = updateContactDto.name;
       }
-      if (updateContactDto.last_name) {
-        data['last_name'] = updateContactDto.last_name;
+      if (updateContactDto.subject) {
+        data['subject'] = updateContactDto.subject;
       }
       if (updateContactDto.email) {
         data['email'] = updateContactDto.email;
