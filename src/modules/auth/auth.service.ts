@@ -406,10 +406,14 @@ export class AuthService {
       // ----------------------------------------------------
 
       // Generate verification token
+      console.log(user.data.id);
+      console.log('creating verification link');
       const token = await this.ucodeRepository.createVerificationToken({
         userId: user.data.id,
         email: email,
       });
+
+      console.log('verification link created');
 
       // Send verification email with token
       await this.mailService.sendVerificationLink({
