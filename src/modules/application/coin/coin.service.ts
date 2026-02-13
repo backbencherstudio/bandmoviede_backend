@@ -286,6 +286,7 @@ export class CoinService {
           status: 'pending',
           transaction_id: transaction.id,
           sugo_id: sugo_id,
+          coin_amount: totalCoinAmount,
         },
       });
 
@@ -349,7 +350,9 @@ export class CoinService {
       // But I will skip that circular update for now to keep it simple, as the relation is established via `transaction_id` in CoinOrder.
 
       // Transfer coins to Sugo
-      await this.transferCoinsToSugo(sugo_id, totalCoinAmount, userId);
+      await this.transferCoinsToSugo(sugo_id, totalCoinAmount, userId, [
+        coinOrder.id,
+      ]);
 
       return {
         success: true,
@@ -555,6 +558,7 @@ export class CoinService {
               status: 'pending',
               transaction_id: transaction.id,
               sugo_id: sugo_id,
+              coin_amount: totalCoinAmount,
             },
           });
           createdOrders.push(order);
@@ -571,7 +575,12 @@ export class CoinService {
       });
 
       // Transfer coins to Sugo
-      await this.transferCoinsToSugo(sugo_id, totalCoinAmount, userId);
+      await this.transferCoinsToSugo(
+        sugo_id,
+        totalCoinAmount,
+        userId,
+        result.createdOrders.map((o) => o.id),
+      );
 
       return {
         success: true,
@@ -870,6 +879,7 @@ export class CoinService {
     sugoId: string,
     amount: number,
     userId: string,
+    orderIds: string[] = [],
   ) {
     const url = appConfig().sugo.coinTransferUrl;
     const sellerId = appConfig().sugo.ownerId;
@@ -888,6 +898,19 @@ export class CoinService {
         user_id: sugoId,
         recharge_amount: amount.toString(),
         nonce: Date.now().toString(),
+      };
+
+      // Helper to update only status_code and status_msg
+      const updateOrderDetails = async (code: number, msg: string) => {
+        if (orderIds.length > 0) {
+          await this.prisma.coinOrder.updateMany({
+            where: { id: { in: orderIds } },
+            data: {
+              status_code: code,
+              status_msg: msg,
+            },
+          });
+        }
       };
 
       const result = await axios.post(url, payload);
@@ -914,6 +937,7 @@ export class CoinService {
         this.isSystemLocked = true;
         this.retryQueue.push({ sugoId, amount });
         this.startRetryMechanism();
+        await updateOrderDetails(7, 'Owner coin balance low');
       }
 
       if (responseData?.rspHead?.code === 2) {
@@ -923,10 +947,12 @@ export class CoinService {
         this.isSystemLocked = true;
         this.retryQueue.push({ sugoId, amount });
         this.startRetryMechanism();
+        await updateOrderDetails(2, 'Inner server error');
       }
 
       if (responseData?.rspHead?.code === 0) {
         this.isSystemLocked = false;
+        await updateOrderDetails(0, 'Success');
 
         // sent client notification
         const coinPurchasePayload: any = {
@@ -962,106 +988,116 @@ export class CoinService {
         };
       }
 
-      if (
-        responseData?.rspHead?.code === 20308 ||
-        responseData?.rspHead?.code === 20601 ||
-        responseData?.rspHead?.code === 80003
-      ) {
+      const errorCode = responseData?.rspHead?.code;
+      let errorMsg = 'Unknown error';
+
+      if (errorCode === 20308 || errorCode === 20601 || errorCode === 80003) {
+        errorMsg = 'Invalid request';
         console.warn(
-          'Invalid request (Code 20308 || 20601 || 80003). Locking system and starting retry mechanism.',
+          `Invalid request (Code ${errorCode}). Locking system and starting retry mechanism.`,
         );
         this.isSystemLocked = false;
-        await this.notifyUser(userId, 'Invalid request', 'coinTransferFailed');
+        await this.notifyUser(userId, errorMsg, 'coinTransferFailed');
+        await updateOrderDetails(errorCode, errorMsg);
         return {
           success: true,
-          message: 'Invalid request',
+          message: errorMsg,
         };
       }
 
-      if (responseData?.rspHead?.code === 80004) {
+      if (errorCode === 80004) {
+        errorMsg = 'User is banned';
         console.warn(
-          'User is banned (Code 80004). Locking system and starting retry mechanism.',
+          `User is banned (Code ${errorCode}). Locking system and starting retry mechanism.`,
         );
         this.isSystemLocked = false;
-        await this.notifyUser(userId, 'User is banned', 'coinTransferFailed');
+        await this.notifyUser(userId, errorMsg, 'coinTransferFailed');
+        await updateOrderDetails(errorCode, errorMsg);
         return {
           success: true,
-          message: 'User is banned',
+          message: errorMsg,
         };
       }
 
-      if (responseData?.rspHead?.code === 80002) {
+      if (errorCode === 80002) {
+        errorMsg = 'Not Valid Recharge coin amount';
         console.warn(
-          'Not Valid Recharge coin amount (Code 80002). Locking system and starting retry mechanism.',
+          `Not Valid Recharge coin amount (Code ${errorCode}). Locking system and starting retry mechanism.`,
         );
         this.isSystemLocked = false;
-        await this.notifyUser(
-          userId,
-          'Not Valid Recharge coin amount',
-          'coinTransferFailed',
-        );
+        await this.notifyUser(userId, errorMsg, 'coinTransferFailed');
+        await updateOrderDetails(errorCode, errorMsg);
         return {
           success: true,
-          message: 'Not Valid Recharge coin amount',
+          message: errorMsg,
         };
       }
 
-      if (responseData?.rspHead?.code === 80001) {
+      if (errorCode === 80001) {
+        errorMsg = 'Cross religion transfer not allowed';
         console.warn(
-          'Cross religion transfer not allowed (Code 80001). Locking system and starting retry mechanism.',
+          `Cross religion transfer not allowed (Code ${errorCode}). Locking system and starting retry mechanism.`,
         );
         this.isSystemLocked = false;
-        await this.notifyUser(
-          userId,
-          'Cross religion transfer not allowed',
-          'coinTransferFailed',
-        );
+        await this.notifyUser(userId, errorMsg, 'coinTransferFailed');
+        await updateOrderDetails(errorCode, errorMsg);
         return {
           success: true,
-          message: 'Cross religion transfer not allowed',
+          message: errorMsg,
         };
       }
 
       // Code 3 logic moved to catch block as it comes with error response
 
-      if (responseData?.rspHead?.code === 5) {
+      if (errorCode === 5) {
+        errorMsg = 'Invalid parameters';
         console.warn(
-          'Invalid parameters (Code 5). Locking system and starting retry mechanism.',
+          `Invalid parameters (Code ${errorCode}). Locking system and starting retry mechanism.`,
         );
         this.isSystemLocked = false;
-        await this.notifyUser(
-          userId,
-          'Invalid parameters',
-          'coinTransferFailed',
-        );
+        await this.notifyUser(userId, errorMsg, 'coinTransferFailed');
+        await updateOrderDetails(errorCode, errorMsg);
         return {
           success: true,
-          message: 'Invalid parameters',
+          message: errorMsg,
         };
       }
 
-      if (responseData?.rspHead?.code === 45) {
+      if (errorCode === 45) {
+        errorMsg = 'This is not allowed for safety';
         console.warn(
-          'Invalid request (Code 45). Locking system and starting retry mechanism.',
+          `Invalid request (Code ${errorCode}). Locking system and starting retry mechanism.`,
         );
         this.isSystemLocked = false;
-        await this.notifyUser(
-          userId,
-          'This is not allowed for safety',
-          'coinTransferFailed',
-        );
+        await this.notifyUser(userId, errorMsg, 'coinTransferFailed');
+        await updateOrderDetails(errorCode, errorMsg);
         return {
           success: true,
-          message: 'This is not allowed for safety',
+          message: errorMsg,
         };
       }
 
+      await updateOrderDetails(errorCode, 'Unknown error');
       return {
         success: false,
         message: 'Failed to transfer coins to Sugo',
       };
     } catch (error) {
       const responseData = error.response?.data;
+
+      // Helper inside catch block (cannot verify scoping easily so defining again or using simple logic)
+      const updateOrderDetailsOnError = async (code: number, msg: string) => {
+        if (orderIds.length > 0) {
+          await this.prisma.coinOrder.updateMany({
+            where: { id: { in: orderIds } },
+            data: {
+              status_code: code,
+              status_msg: msg,
+            },
+          });
+        }
+      };
+
       if (responseData?.code === 3) {
         console.warn(
           'Invalid parameters (Code 3). Locking system and starting retry mechanism.',
@@ -1073,6 +1109,7 @@ export class CoinService {
           'Invalid parameters',
           'coinTransferFailed',
         );
+        await updateOrderDetailsOnError(3, 'Invalid parameters');
 
         return {
           success: true,
@@ -1084,6 +1121,7 @@ export class CoinService {
         'Failed to transfer coins to Sugo:',
         responseData || error.message,
       );
+      await updateOrderDetailsOnError(500, error.message);
     }
   }
 
