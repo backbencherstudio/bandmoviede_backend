@@ -11,6 +11,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -236,8 +237,8 @@ export class AuthController {
 
   // verify email to verify the email
   @ApiOperation({ summary: 'Verify email' })
-  @Post('verify-email')
-  async verifyEmail(@Body() data: VerifyEmailDto) {
+  @Get('verify-email')
+  async verifyEmail(@Query() data: VerifyEmailDto, @Res() res: Response) {
     try {
       const email = data.email;
       const token = data.token;
@@ -247,15 +248,17 @@ export class AuthController {
       if (!token) {
         throw new HttpException('Token not provided', HttpStatus.UNAUTHORIZED);
       }
-      return await this.authService.verifyEmail({
+      await this.authService.verifyEmail({
         email: email,
         token: token,
       });
+
+      return res.redirect(`${appConfig().app.client_app_url}/signin`);
     } catch (error) {
-      return {
+      return res.status(HttpStatus.BAD_REQUEST).json({
         success: false,
         message: 'Failed to verify email',
-      };
+      });
     }
   }
 
