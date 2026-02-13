@@ -547,6 +547,9 @@ model CoinOrder {
   quantity Int    @default(1)
   status   String @default("pending")
 
+  status_code Int?
+  status_msg  String?
+
   transaction_id String?
   transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])
 

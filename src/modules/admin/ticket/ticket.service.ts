@@ -283,6 +283,27 @@ export class TicketService {
     };
   }
 
+  async updateUsed(id: string) {
+    if (!id) {
+      throw new BadRequestException('Ticket id is required');
+    }
+    const ticket = await this.prisma.eventOrder.findUnique({
+      where: { id },
+    });
+    if (!ticket) {
+      throw new InternalServerErrorException('Ticket not found');
+    }
+
+    await this.prisma.eventOrder.update({
+      where: { id },
+      data: { used: !ticket.used },
+    });
+    return {
+      success: true,
+      message: 'Ticket used status updated successfully',
+    };
+  }
+
   async remove(id: string) {
     if (!id) {
       throw new BadRequestException('Ticket id is required');
