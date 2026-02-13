@@ -141,7 +141,7 @@ export class OrderService {
           o.status,
           o.status_code,
           o.status_msg,
-          o.amount AS amount,
+          o.coin_amount as coin_amount,
           o.quantity as quantity,
           o.created_at AS payment_date,
           u.name AS user_name,

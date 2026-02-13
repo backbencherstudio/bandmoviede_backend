@@ -286,6 +286,7 @@ export class CoinService {
           status: 'pending',
           transaction_id: transaction.id,
           sugo_id: sugo_id,
+          coin_amount: totalCoinAmount,
         },
       });
 
@@ -557,6 +558,7 @@ export class CoinService {
               status: 'pending',
               transaction_id: transaction.id,
               sugo_id: sugo_id,
+              coin_amount: totalCoinAmount,
             },
           });
           createdOrders.push(order);
