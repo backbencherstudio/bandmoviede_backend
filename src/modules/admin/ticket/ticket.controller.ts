@@ -93,6 +93,11 @@ export class TicketController {
     return this.ticketService.update(id, updateTicketDto, thumbnail);
   }
 
+  @Patch(':id/used')
+  updateUsed(@Param('id') id: string) {
+    return this.ticketService.updateUsed(id);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ticketService.remove(id);

@@ -544,9 +544,13 @@ model CoinOrder {
   coin_bundle_id String
   coin_bundle    CoinBundle @relation(fields: [coin_bundle_id], references: [id])
 
-  amount   Int
-  quantity Int    @default(1)
-  status   String @default("pending")
+  amount      Int
+  coin_amount Int?
+  quantity    Int    @default(1)
+  status      String @default("pending")
+
+  status_code Int?
+  status_msg  String?
 
   transaction_id String?
   transaction    PaymentTransaction? @relation(fields: [transaction_id], references: [id])
