@@ -480,6 +480,7 @@ model CoinBundle {
   thumbnail   String?
   status      BundleStatus @default(Active)
   user_id     String?
+  is_custom   Boolean      @default(false)
 
   user              User?              @relation(fields: [user_id], references: [id])
   coinOrders        CoinOrder[]

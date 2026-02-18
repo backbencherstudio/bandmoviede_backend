@@ -38,6 +38,7 @@ export class CoinService {
         where: {
           status: 'Active',
           deleted_at: null,
+          is_custom: false,
         },
         select: {
           id: true,
@@ -121,6 +122,37 @@ export class CoinService {
     };
   }
 
+  async findCustomCoinBundle() {
+    const coinBundle = await this.prisma.coinBundle.findFirst({
+      where: {
+        is_custom: true,
+        status: 'Active',
+      },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        thumbnail: true,
+      },
+    });
+
+    if (!coinBundle) {
+      throw new NotFoundException('Coin bundle not found');
+    }
+
+    const thumbnail_url = coinBundle.thumbnail
+      ? SojebStorage.url(
+          appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
+        )
+      : null;
+
+    return {
+      success: true,
+      message: 'Coin bundle retrieved successfully',
+      data: { ...coinBundle, thumbnail_url },
+    };
+  }
+
   // State variables for retry mechanism
   private isSystemLocked = false;
   private retryQueue: { sugoId: string; amount: number }[] = [];
@@ -153,6 +185,18 @@ export class CoinService {
           success: false,
           message: 'Coin bundle not found',
         };
+      }
+
+      if (coinBundle.is_custom) {
+        const totalCoins = coinBundle.coin_amount * (quantity || 1);
+        const minLimit = 750;
+
+        if (totalCoins < minLimit) {
+          return {
+            success: false,
+            message: `Minimum order amount is ${minLimit} coins`,
+          };
+        }
       }
 
       const user = await this.prisma.user.findUnique({
@@ -419,6 +463,17 @@ export class CoinService {
           throw new BadRequestException(
             `Coin bundle not found or inactive: ${item.bundle_id}`,
           );
+        }
+
+        if (bundle.is_custom) {
+          const totalCoins = bundle.coin_amount * item.quantity;
+          const minLimit = 750;
+
+          if (totalCoins < minLimit) {
+            throw new BadRequestException(
+              `Minimum order amount for ${bundle.name} is ${minLimit} coins`,
+            );
+          }
         }
 
         totalAmount += bundle.price * item.quantity;

@@ -61,6 +61,11 @@ export class CoinController {
     return this.coinService.create(userId, createCoinDto, thumbnail);
   }
 
+  @Get('custom')
+  findCustomCoinBundle() {
+    return this.coinService.findCustomCoinBundle();
+  }
+
   @Get('all')
   findAll(@Query() query: FindAllQueryDto) {
     return this.coinService.findAll(query);

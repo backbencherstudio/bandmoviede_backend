@@ -22,14 +22,23 @@ export class CoinService {
     createCoinDto: CreateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
-    const { price, coin_amount, is_active } = createCoinDto;
-
-    if (price <= 0) {
-      throw new BadRequestException('Price must be greater than or equal to 0');
-    }
+    const { price, coin_amount, is_active, is_custom } = createCoinDto;
     if (coin_amount < 750) {
       throw new BadRequestException('Coin amount must be at least 750');
     }
+    if (price <= 0) {
+      throw new BadRequestException('Price must be greater than or equal to 0');
+    }
+
+    if (is_custom) {
+      const existingCustom = await this.prisma.coinBundle.findFirst({
+        where: { is_custom: true, deleted_at: null },
+      });
+      if (existingCustom) {
+        throw new BadRequestException('A custom coin bundle already exists');
+      }
+    }
+
     let name = StringHelper.randomString(8).toUpperCase();
     let isNameExist = await this.prisma.coinBundle.findFirst({
       where: { name },
@@ -63,6 +72,7 @@ export class CoinService {
         coin_amount,
         user_id: userId,
         status: is_active ? 'Active' : 'Inactive',
+        is_custom: is_custom || false,
         ...(fileName ? { thumbnail: fileName } : {}),
       },
       select: {
@@ -74,6 +84,7 @@ export class CoinService {
         created_at: true,
         updated_at: true,
         thumbnail: true,
+        is_custom: true,
       },
     });
 
@@ -97,6 +108,7 @@ export class CoinService {
     const take = limit;
     const where: Prisma.CoinBundleWhereInput = {
       deleted_at: null,
+      is_custom: false,
     };
 
     // Build date filter conditions
@@ -240,6 +252,33 @@ export class CoinService {
     };
   }
 
+  async findCustomCoinBundle() {
+    const coinBundle = await this.prisma.coinBundle.findFirst({
+      where: { is_custom: true, deleted_at: null },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        coin_amount: true,
+        total_sold: true,
+        is_custom: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+
+    if (!coinBundle) {
+      throw new NotFoundException('Coin bundle not found');
+    }
+
+    return {
+      success: true,
+      message: 'Coin bundle fetched successfully',
+      data: coinBundle,
+    };
+  }
+
   async update(
     id: string,
     updateCoinDto: UpdateCoinDto,
@@ -248,10 +287,6 @@ export class CoinService {
     if (!id) {
       throw new BadRequestException('Coin bundle id is required');
     }
-    if (updateCoinDto.coin_amount && updateCoinDto.coin_amount < 750) {
-      throw new BadRequestException('Coin amount must be at least 750');
-    }
-    const { is_active = true, ...rest } = updateCoinDto;
 
     const existing = await this.prisma.coinBundle.findUnique({
       where: { id, deleted_at: null },
@@ -260,6 +295,22 @@ export class CoinService {
     if (!existing) {
       throw new NotFoundException('Coin bundle not found');
     }
+
+    if (updateCoinDto.coin_amount) {
+      if (existing.is_custom) {
+        if (updateCoinDto.coin_amount < 1) {
+          throw new BadRequestException(
+            'Coin amount must be at least 1 for custom bundle',
+          );
+        }
+      } else {
+        if (updateCoinDto.coin_amount < 750) {
+          throw new BadRequestException('Coin amount must be at least 750');
+        }
+      }
+    }
+
+    const { is_active = true, ...rest } = updateCoinDto;
 
     if (rest.price !== undefined && rest.price <= 0) {
       throw new BadRequestException('Price must be greater than or equal to 0');
@@ -296,6 +347,7 @@ export class CoinService {
         created_at: true,
         updated_at: true,
         thumbnail: true,
+        is_custom: true,
       },
     });
 

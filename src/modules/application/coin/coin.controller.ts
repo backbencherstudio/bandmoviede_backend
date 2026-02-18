@@ -39,6 +39,12 @@ export class CoinController {
   }
 
   @Public()
+  @Get('custom')
+  getCustomCoinBundle() {
+    return this.coinService.findCustomCoinBundle();
+  }
+
+  @Public()
   @Get('bundle/:id')
   getCoinBundleById(@Param('id') id: string) {
     return this.coinService.findCoinBundleById(id);
