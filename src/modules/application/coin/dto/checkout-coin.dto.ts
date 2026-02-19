@@ -16,10 +16,16 @@ export class CoinItemDto {
   @IsNotEmpty()
   bundle_id: string;
 
-  @ApiProperty()
+  @ApiProperty({ default: 1 })
   @IsInt()
   @Min(1)
-  quantity: number;
+  @IsOptional()
+  quantity: number = 1;
+
+  @ApiProperty({ required: false })
+  @IsInt()
+  @IsOptional()
+  coin_amount?: number;
 }
 
 export class CheckoutCoinDto {
