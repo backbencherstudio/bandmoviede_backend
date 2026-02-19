@@ -424,7 +424,11 @@ export class CoinService {
     }
 
     try {
-      let items: { bundle_id: string; quantity: number }[] = [];
+      let items: {
+        bundle_id: string;
+        quantity: number;
+        coin_amount?: number;
+      }[] = [];
       let sugo_id = body.sugo_id;
 
       if (body.checkout_id) {
@@ -440,12 +444,13 @@ export class CoinService {
         items = draft.items.map((item) => ({
           bundle_id: item.coin_bundle_id,
           quantity: item.quantity,
+          // coin_amount is not stored in draft currently, so it will be undefined
         }));
       } else {
         if (!body.items || body.items.length === 0) {
           throw new BadRequestException('No coin bundles provided');
         }
-        items = body.items;
+        items = body.items.map((i) => ({ ...i, quantity: i.quantity || 1 }));
       }
 
       if (!sugo_id) {
@@ -468,20 +473,47 @@ export class CoinService {
           );
         }
 
-        if (bundle.is_custom) {
-          const totalCoins = bundle.coin_amount * item.quantity;
-          const minLimit = 750;
+        let itemTotalAmount = 0;
+        let itemTotalCoins = 0;
+        let itemQuantity = item.quantity;
 
-          if (totalCoins < minLimit) {
+        if (bundle.is_custom) {
+          // Custom bundle logic
+          // item.quantity is ignored/treated as 1
+          const customCoinAmount = item.coin_amount;
+
+          if (!customCoinAmount) {
             throw new BadRequestException(
-              `Minimum order amount for ${bundle.name} is ${minLimit} coins`,
+              `Coin amount is required for custom bundle: ${bundle.name}`,
             );
           }
+
+          if (customCoinAmount <= 750) {
+            throw new BadRequestException(
+              `Minimum order amount for ${bundle.name} is 750 coins`,
+            );
+          }
+
+          itemTotalCoins = customCoinAmount;
+          // Price calculation based on user instruction: coin_amount * bundle.price
+          itemTotalAmount = customCoinAmount * bundle.price;
+          itemQuantity = 1; // Force quantity to 1 for custom bundles
+        } else {
+          // Standard bundle logic
+          itemTotalCoins = bundle.coin_amount * item.quantity;
+          itemTotalAmount = bundle.price * item.quantity;
         }
 
-        totalAmount += bundle.price * item.quantity;
-        totalCoinAmount += bundle.coin_amount * item.quantity;
-        bundleDetails.push({ bundle, quantity: item.quantity });
+        totalAmount += itemTotalAmount;
+        totalCoinAmount += itemTotalCoins;
+
+        // Pass calculated values to bundleDetails
+        bundleDetails.push({
+          bundle,
+          quantity: itemQuantity,
+          price: itemTotalAmount, // Store total price for this item
+          coin_amount: itemTotalCoins, // Store total coins for this item
+        });
       }
 
       // Check owner balance
@@ -608,12 +640,12 @@ export class CoinService {
             data: {
               user_id: userId,
               coin_bundle_id: item.bundle.id,
-              amount: item.bundle.price * item.quantity,
+              amount: item.price, // Use calculated price
               quantity: item.quantity,
               status: 'pending',
               transaction_id: transaction.id,
               sugo_id: sugo_id,
-              coin_amount: totalCoinAmount,
+              coin_amount: item.coin_amount, // Use calculated coin amount
             },
           });
           createdOrders.push(order);
