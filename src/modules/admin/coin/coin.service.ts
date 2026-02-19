@@ -23,7 +23,7 @@ export class CoinService {
     thumbnail?: Express.Multer.File,
   ) {
     const { price, coin_amount, is_active, is_custom } = createCoinDto;
-    if (coin_amount < 750) {
+    if (!is_custom && coin_amount < 750) {
       throw new BadRequestException('Coin amount must be at least 750');
     }
     if (price <= 0) {
@@ -65,7 +65,7 @@ export class CoinService {
       }
     }
 
-    const coinBundle = await this.prisma.coinBundle.create({
+    await this.prisma.coinBundle.create({
       data: {
         name,
         price,
@@ -91,14 +91,6 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle created successfully',
-      // data: {
-      //   ...coinBundle,
-      //   thumbnail: coinBundle.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-      //       )
-      //     : null,
-      // },
     };
   }
 
@@ -297,13 +289,7 @@ export class CoinService {
     }
 
     if (updateCoinDto.coin_amount) {
-      if (existing.is_custom) {
-        if (updateCoinDto.coin_amount < 1) {
-          throw new BadRequestException(
-            'Coin amount must be at least 1 for custom bundle',
-          );
-        }
-      } else {
+      if (!existing.is_custom) {
         if (updateCoinDto.coin_amount < 750) {
           throw new BadRequestException('Coin amount must be at least 750');
         }
@@ -329,7 +315,7 @@ export class CoinService {
       }
     }
 
-    const coinBundle = await this.prisma.coinBundle.update({
+    await this.prisma.coinBundle.update({
       where: { id },
       data: {
         ...rest,
@@ -354,14 +340,6 @@ export class CoinService {
     return {
       success: true,
       message: 'Coin bundle updated successfully',
-      // data: {
-      //   ...coinBundle,
-      //   thumbnail: coinBundle.thumbnail
-      //     ? SojebStorage.url(
-      //         appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-      //       )
-      //     : null,
-      // },
     };
   }
 
