@@ -65,6 +65,11 @@ export class CoinController {
     return this.coinService.checkout(req.user.userId, body);
   }
 
+  @Post('paypal/checkout/order')
+  paypalCheckout(@Body() body: CheckoutCoinDto, @Req() req: any) {
+    return this.coinService.paypalCheckout(req.user.userId, body);
+  }
+
   // --- Checkout CRUD ---
 
   @Post('checkout')

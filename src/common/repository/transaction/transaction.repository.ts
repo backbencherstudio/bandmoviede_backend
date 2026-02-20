@@ -16,6 +16,7 @@ export class TransactionRepository {
       reference_number,
       status = 'pending',
       type = 'order',
+      raw_status,
     }: {
       order_id?: string;
       amount?: number;
@@ -23,6 +24,7 @@ export class TransactionRepository {
       reference_number?: string;
       status?: string;
       type?: string;
+      raw_status?: string;
     },
     prismaClient: any = null,
   ) {
@@ -44,6 +46,9 @@ export class TransactionRepository {
     }
     if (type) {
       data['type'] = type;
+    }
+    if (raw_status) {
+      data['raw_status'] = raw_status;
     }
 
     const client = prismaClient || this.prisma;
