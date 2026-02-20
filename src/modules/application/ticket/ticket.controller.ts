@@ -87,4 +87,19 @@ export class TicketController {
     const userId = req.user.userId;
     return this.ticketService.checkout(userId, body);
   }
+
+  @Post('paypal/order')
+  createPaypalTicketOrder(
+    @Body() body: { ticket_id: string },
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+    return this.ticketService.createPaypalTicketOrder(userId, body.ticket_id);
+  }
+
+  @Post('paypal/checkout/order')
+  paypalCheckout(@Body() body: CheckoutTicketDto, @Req() req: any) {
+    const userId = req.user.userId;
+    return this.ticketService.paypalCheckout(userId, body);
+  }
 }

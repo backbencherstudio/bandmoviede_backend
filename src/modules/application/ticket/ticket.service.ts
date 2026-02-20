@@ -13,6 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import appConfig from 'src/config/app.config';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
+import { PaypalPayment } from 'src/common/lib/Payment/paypal/PaypalPayment';
 import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { MessageGateway } from 'src/modules/chat/message/message.gateway';
@@ -355,6 +356,175 @@ export class TicketService {
         data: {
           client_secret: result.data.client_secret,
           order_id: result.data.orders[0],
+        },
+      };
+    } catch (error) {
+      console.error(error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      return {
+        success: false,
+        message: 'Failed to process checkout',
+      };
+    }
+  }
+
+  async paypalCheckout(userId: string, body: CheckoutTicketDto) {
+    try {
+      let ticketItems = body.items;
+
+      if (body.checkout_id) {
+        const draft = await this.prisma.ticketCheckout.findUnique({
+          where: { id: body.checkout_id },
+          include: { items: true },
+        });
+
+        if (!draft || draft.user_id !== userId) {
+          throw new NotFoundException('Checkout draft not found');
+        }
+
+        if (!draft.items || draft.items.length === 0) {
+          throw new BadRequestException('Checkout draft is empty');
+        }
+
+        ticketItems = draft.items.map((item) => ({
+          ticket_id: item.event_ticket_id,
+          quantity: item.quantity,
+        }));
+      }
+
+      if (!ticketItems || ticketItems.length === 0) {
+        throw new BadRequestException('No tickets provided');
+      }
+
+      let totalAmount = 0;
+      const ticketDetails = [];
+
+      for (const item of ticketItems) {
+        const ticket = await this.prisma.eventTicket.findUnique({
+          where: { id: item.ticket_id, status: 'Active' },
+        });
+
+        if (!ticket) {
+          throw new BadRequestException(
+            `Ticket not found or inactive: ${item.ticket_id}`,
+          );
+        }
+
+        if (
+          ticket.sold_limit &&
+          ticket.total_sold + item.quantity > ticket.sold_limit
+        ) {
+          throw new BadRequestException(
+            `Not enough stock for ticket: ${ticket.title}`,
+          );
+        }
+
+        totalAmount += ticket.ticket_price * item.quantity;
+        ticketDetails.push({ ticket, quantity: item.quantity });
+      }
+
+      // 2. PayPal Create Order
+      const order = await PaypalPayment.createOrder(totalAmount, 'USD');
+
+      // 3. Create Transaction and Orders
+      const result = await this.prisma.$transaction(async (prisma) => {
+        const transaction = await this.transactionRepository.createTransaction(
+          {
+            order_id: null,
+            amount: totalAmount,
+            currency: 'usd',
+            reference_number: order.id,
+            status: 'pending',
+            type: 'ticket_checkout',
+            raw_status: order.status,
+          },
+          prisma,
+        );
+
+        const createdOrders = [];
+
+        for (const item of ticketDetails) {
+          await prisma.eventTicket.update({
+            where: { id: item.ticket.id },
+            data: { total_sold: { increment: item.quantity } },
+          });
+
+          for (let i = 0; i < item.quantity; i++) {
+            const eventOrder = await prisma.eventOrder.create({
+              data: {
+                user_id: userId,
+                event_ticket_id: item.ticket.id,
+                amount: item.ticket.ticket_price,
+                status: 'pending',
+                transaction_id: transaction.id,
+              },
+            });
+            createdOrders.push(eventOrder);
+          }
+        }
+
+        if (body.checkout_id) {
+          await prisma.ticketCheckout.delete({
+            where: { id: body.checkout_id },
+          });
+        }
+
+        return { transaction, createdOrders };
+      });
+
+      // Find approval link
+      const approvalLink = order.links.find(
+        (link) => link.rel === 'approve' || link.rel === 'payer-action',
+      );
+
+      return {
+        success: true,
+        message: 'Ticket checkout successful',
+        data: {
+          order_id: order.id,
+          approval_url: approvalLink ? approvalLink.href : null,
+          transaction_id: result.transaction.id,
+          orders: result.createdOrders.map((o) => o.id),
+        },
+      };
+    } catch (error) {
+      console.error('PayPal Checkout Error:', error?.response?.data || error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      return {
+        success: false,
+        message: 'Failed to process checkout',
+        error: error?.message || 'Unknown error',
+      };
+    }
+  }
+
+  async createPaypalTicketOrder(userId: string, ticketId: string) {
+    try {
+      const result = await this.paypalCheckout(userId, {
+        items: [{ ticket_id: ticketId, quantity: 1 }],
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      return {
+        success: true,
+        message: 'Ticket order created successfully',
+        data: {
+          order_id: result.data.order_id,
+          approval_url: result.data.approval_url,
+          transaction_id: result.data.transaction_id,
         },
       };
     } catch (error) {

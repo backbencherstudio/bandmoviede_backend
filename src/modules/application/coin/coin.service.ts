@@ -14,6 +14,7 @@ import {
 } from './dto/coin-checkout.dto';
 import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
+import { PaypalPayment } from 'src/common/lib/Payment/paypal/PaypalPayment';
 import { StringHelper } from 'src/common/helper/string.helper';
 import { OwnerService } from 'src/modules/admin/owner/owner.service';
 import axios from 'axios';
@@ -688,6 +689,243 @@ export class CoinService {
       return {
         success: false,
         message: 'Failed to process checkout',
+      };
+    }
+  }
+
+  async paypalCheckout(userId: string, body: CheckoutCoinDto) {
+    // 1. Check system lock
+    if (this.isSystemLocked) {
+      return {
+        success: false,
+        message: 'System is currently unavailable to process this request',
+      };
+    }
+
+    try {
+      let items: {
+        bundle_id: string;
+        quantity: number;
+        coin_amount?: number;
+      }[] = [];
+      let sugo_id = body.sugo_id;
+
+      if (body.checkout_id) {
+        const draft = await this.prisma.coinCheckout.findUnique({
+          where: { id: body.checkout_id },
+          include: { items: true },
+        });
+
+        if (!draft || draft.user_id !== userId) {
+          throw new NotFoundException('Checkout draft not found');
+        }
+
+        items = draft.items.map((item) => ({
+          bundle_id: item.coin_bundle_id,
+          quantity: item.quantity,
+        }));
+      } else {
+        if (!body.items || body.items.length === 0) {
+          throw new BadRequestException('No coin bundles provided');
+        }
+        items = body.items.map((i) => ({ ...i, quantity: i.quantity || 1 }));
+      }
+
+      if (!sugo_id) {
+        throw new BadRequestException('Sugo ID is required');
+      }
+
+      // 1. Validate all bundles and calculate total amount
+      let totalAmount = 0;
+      let totalCoinAmount = 0;
+      const bundleDetails = [];
+
+      for (const item of items) {
+        const bundle = await this.prisma.coinBundle.findUnique({
+          where: { id: item.bundle_id, status: 'Active' },
+        });
+
+        if (!bundle) {
+          throw new BadRequestException(
+            `Coin bundle not found or inactive: ${item.bundle_id}`,
+          );
+        }
+
+        let itemTotalAmount = 0;
+        let itemTotalCoins = 0;
+        let itemQuantity = item.quantity;
+
+        if (bundle.is_custom) {
+          const customCoinAmount = item.coin_amount;
+
+          if (!customCoinAmount) {
+            throw new BadRequestException(
+              `Coin amount is required for custom bundle: ${bundle.name}`,
+            );
+          }
+
+          if (customCoinAmount <= 750) {
+            throw new BadRequestException(
+              `Minimum order amount for ${bundle.name} is 750 coins`,
+            );
+          }
+
+          itemTotalCoins = customCoinAmount;
+          itemTotalAmount = customCoinAmount * bundle.price;
+          itemQuantity = 1;
+        } else {
+          itemTotalCoins = bundle.coin_amount * item.quantity;
+          itemTotalAmount = bundle.price * item.quantity;
+        }
+
+        totalAmount += itemTotalAmount;
+        totalCoinAmount += itemTotalCoins;
+
+        bundleDetails.push({
+          bundle,
+          quantity: itemQuantity,
+          price: itemTotalAmount,
+          coin_amount: itemTotalCoins,
+        });
+      }
+
+      // Check owner balance
+      const ownerCoins = await this.ownerService.findOwnerCoins();
+      if (!ownerCoins.success || !ownerCoins.data?.balance) {
+        return {
+          success: false,
+          message: 'Failed to fetch owner balance',
+        };
+      }
+
+      const ownerBalance = parseFloat(ownerCoins.data.balance);
+      if (ownerBalance < totalCoinAmount) {
+        // ... (Owner balance notification logic same as checkout) ...
+        const admins = await this.prisma.user.findMany({
+          where: {
+            type: 'admin',
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (admins && admins.length > 0) {
+          for (const admin of admins) {
+            const lowBalanceAlertPayload: any = {
+              sender_id: null,
+              receiver_id: admin.id,
+              text: `Owner coin balance is low: ${ownerBalance}. Client required: ${totalCoinAmount}`,
+              type: 'cross_owner_coin_balance',
+            };
+
+            const hasSentToday =
+              await this.notificationRepository.hasTodayNotification(
+                admin.id,
+                'cross_owner_coin_balance',
+              );
+
+            if (hasSentToday) {
+              continue;
+            }
+
+            const userSocketId = this.messageGateway.clients.get(admin.id);
+
+            if (userSocketId) {
+              this.messageGateway.server
+                .to(userSocketId)
+                .emit('crossOwnerBalance', lowBalanceAlertPayload);
+            }
+
+            await this.notificationRepository.createNotification(
+              lowBalanceAlertPayload,
+            );
+          }
+        }
+        return {
+          success: false,
+          message: 'System is currently unavailable to process this request',
+        };
+      }
+
+      // 2. PayPal Create Order
+      const order = await PaypalPayment.createOrder(totalAmount, 'USD');
+      console.log('PayPal Order Response:', JSON.stringify(order, null, 2));
+
+      // 3. Create Transaction and Orders
+      const result = await this.prisma.$transaction(async (prisma) => {
+        const transaction = await this.transactionRepository.createTransaction(
+          {
+            order_id: null,
+            amount: totalAmount,
+            currency: 'usd',
+            reference_number: order.id,
+            status: 'pending',
+            type: 'coin_checkout',
+            raw_status: order.status,
+          },
+          prisma,
+        );
+
+        const createdOrders = [];
+
+        for (const item of bundleDetails) {
+          await prisma.coinBundle.update({
+            where: { id: item.bundle.id },
+            data: { total_sold: { increment: item.quantity } },
+          });
+
+          const coinOrder = await prisma.coinOrder.create({
+            data: {
+              user_id: userId,
+              coin_bundle_id: item.bundle.id,
+              amount: item.price,
+              quantity: item.quantity,
+              status: 'pending',
+              transaction_id: transaction.id,
+              sugo_id: sugo_id,
+              coin_amount: item.coin_amount,
+            },
+          });
+          createdOrders.push(coinOrder);
+        }
+
+        if (body.checkout_id) {
+          await prisma.coinCheckout.delete({
+            where: { id: body.checkout_id },
+          });
+        }
+
+        return { transaction, createdOrders };
+      });
+
+      // Find approval link
+      const approvalLink = order.links.find(
+        (link) => link.rel === 'approve' || link.rel === 'payer-action',
+      );
+
+      return {
+        success: true,
+        message: 'PayPal order created',
+        data: {
+          order_id: order.id,
+          approval_url: approvalLink ? approvalLink.href : null,
+          transaction_id: result.transaction.id,
+          orders: result.createdOrders.map((o) => o.id),
+        },
+      };
+    } catch (error) {
+      console.error('PayPal Checkout Error:', error?.response?.data || error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      return {
+        success: false,
+        message: 'Failed to process PayPal checkout',
+        error: error?.message || 'Unknown error',
       };
     }
   }
