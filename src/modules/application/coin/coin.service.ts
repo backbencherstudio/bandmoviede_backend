@@ -496,16 +496,17 @@ export class CoinService {
           }
 
           itemTotalCoins = customCoinAmount;
-          // Price calculation based on user instruction: coin_amount * bundle.price
-          itemTotalAmount = customCoinAmount * bundle.price;
+          itemTotalAmount = Number(
+            (customCoinAmount * bundle.price).toFixed(2),
+          );
           itemQuantity = 1; // Force quantity to 1 for custom bundles
         } else {
           // Standard bundle logic
           itemTotalCoins = bundle.coin_amount * item.quantity;
-          itemTotalAmount = bundle.price * item.quantity;
+          itemTotalAmount = Number((bundle.price * item.quantity).toFixed(2));
         }
 
-        totalAmount += itemTotalAmount;
+        totalAmount = Number((totalAmount + itemTotalAmount).toFixed(2));
         totalCoinAmount += itemTotalCoins;
 
         // Pass calculated values to bundleDetails
@@ -771,14 +772,16 @@ export class CoinService {
           }
 
           itemTotalCoins = customCoinAmount;
-          itemTotalAmount = customCoinAmount * bundle.price;
+          itemTotalAmount = Number(
+            (customCoinAmount * bundle.price).toFixed(2),
+          );
           itemQuantity = 1;
         } else {
           itemTotalCoins = bundle.coin_amount * item.quantity;
-          itemTotalAmount = bundle.price * item.quantity;
+          itemTotalAmount = Number((bundle.price * item.quantity).toFixed(2));
         }
 
-        totalAmount += itemTotalAmount;
+        totalAmount = Number((totalAmount + itemTotalAmount).toFixed(2));
         totalCoinAmount += itemTotalCoins;
 
         bundleDetails.push({
