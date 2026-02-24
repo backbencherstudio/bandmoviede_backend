@@ -474,7 +474,7 @@ model CoinBundle {
   deleted_at DateTime?
 
   name        String
-  price       Int
+  price       Float
   coin_amount Int
   total_sold  Int?
   thumbnail   String?

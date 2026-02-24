@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -12,7 +13,7 @@ export class CreateCoinDto {
   @IsNotEmpty()
   @Transform(({ value }) => Number(value))
   @Min(0, { message: 'Price must be at least 0' })
-  @IsInt()
+  @IsNumber()
   price: number;
 
   @IsOptional()
