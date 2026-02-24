@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "coin_bundles" ALTER COLUMN "price" SET DATA TYPE DOUBLE PRECISION;
