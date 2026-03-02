@@ -19,7 +19,6 @@ export class CreateCoinDto {
   @IsOptional()
   @Transform(({ value }) => Number(value))
   @IsInt()
-  @Min(750, { message: 'Coin amount must be at least 750' })
   coin_amount: number;
 
   @IsOptional()
