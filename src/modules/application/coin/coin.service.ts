@@ -133,7 +133,7 @@ export class CoinService {
         id: true,
         name: true,
         price: true,
-        thumbnail: true,
+        coin_amount: true,
       },
     });
 
@@ -141,16 +141,10 @@ export class CoinService {
       throw new NotFoundException('Coin bundle not found');
     }
 
-    const thumbnail_url = coinBundle.thumbnail
-      ? SojebStorage.url(
-          appConfig().storageUrl.coinThumbnails + coinBundle.thumbnail,
-        )
-      : null;
-
     return {
       success: true,
       message: 'Coin bundle retrieved successfully',
-      data: { ...coinBundle, thumbnail_url },
+      data: coinBundle,
     };
   }
 
