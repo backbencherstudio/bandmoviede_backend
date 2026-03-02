@@ -22,7 +22,7 @@ export class CoinService {
     createCoinDto: CreateCoinDto,
     thumbnail?: Express.Multer.File,
   ) {
-    const { price, coin_amount, is_active, is_custom } = createCoinDto;
+    const { price, coin_amount = 0, is_active, is_custom } = createCoinDto;
     if (!is_custom && coin_amount < 750) {
       throw new BadRequestException('Coin amount must be at least 750');
     }
@@ -360,6 +360,11 @@ export class CoinService {
         deleted_at: new Date(),
       },
     });
+    if (existing.thumbnail) {
+      await SojebStorage.delete(
+        appConfig().storageUrl.coinThumbnails + existing.thumbnail,
+      );
+    }
     return {
       success: true,
       message: 'Coin bundle deleted successfully',

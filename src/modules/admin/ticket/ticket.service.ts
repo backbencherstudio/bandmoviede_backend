@@ -318,6 +318,11 @@ export class TicketService {
       where: { id },
       data: { deleted_at: new Date() },
     });
+    if (ticket.thumbnail) {
+      await SojebStorage.delete(
+        appConfig().storageUrl.ticketThumbnails + ticket.thumbnail,
+      );
+    }
     return {
       success: true,
       message: 'Ticket deleted successfully',
