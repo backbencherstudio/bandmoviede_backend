@@ -15,7 +15,6 @@ import {
 import { TransactionRepository } from 'src/common/repository/transaction/transaction.repository';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
 import { PaypalPayment } from 'src/common/lib/Payment/paypal/PaypalPayment';
-import { StringHelper } from 'src/common/helper/string.helper';
 import { OwnerService } from 'src/modules/admin/owner/owner.service';
 import axios from 'axios';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
