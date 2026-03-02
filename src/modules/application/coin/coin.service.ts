@@ -128,6 +128,7 @@ export class CoinService {
       where: {
         is_custom: true,
         status: 'Active',
+        deleted_at: null,
       },
       select: {
         id: true,
