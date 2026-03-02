@@ -766,8 +766,11 @@ export class CoinService {
           }
 
           itemTotalCoins = customCoinAmount;
+          const perCoinPrice = bundle.coin_amount
+            ? bundle.price / bundle.coin_amount
+            : 0;
           itemTotalAmount = Number(
-            (customCoinAmount * bundle.price).toFixed(2),
+            (perCoinPrice * customCoinAmount).toFixed(2),
           );
           itemQuantity = 1;
         } else {
