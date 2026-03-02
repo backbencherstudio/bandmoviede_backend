@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "coin_orders" ALTER COLUMN "amount" SET DATA TYPE DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "event_orders" ALTER COLUMN "amount" SET DATA TYPE DOUBLE PRECISION;
