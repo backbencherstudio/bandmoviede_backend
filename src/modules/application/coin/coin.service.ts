@@ -409,7 +409,7 @@ export class CoinService {
     }
   }
 
-  async checkout(userId: string, body: CheckoutCoinDto) {
+  async checkout(userId: string | null, body: CheckoutCoinDto) {
     // 1. Check system lock
     if (this.isSystemLocked) {
       return {
@@ -427,6 +427,11 @@ export class CoinService {
       let sugo_id = body.sugo_id;
 
       if (body.checkout_id) {
+        if (!userId) {
+          throw new BadRequestException(
+            'Checkout draft is only available for logged-in users',
+          );
+        }
         const draft = await this.prisma.coinCheckout.findUnique({
           where: { id: body.checkout_id },
           include: { items: true },
@@ -575,34 +580,38 @@ export class CoinService {
       }
 
       // 2. Get User and Stripe Customer
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
+      let stripeCustomerId = undefined;
 
-      let stripeCustomerId = user.billing_id;
-      if (!stripeCustomerId) {
-        const customer = await StripePayment.createCustomer({
-          user_id: user.id,
-          name: user.name,
-          email: user.email,
-        });
-        stripeCustomerId = customer.id;
+      if (userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
 
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: { billing_id: stripeCustomerId },
-        });
+        stripeCustomerId = user.billing_id;
+        if (!stripeCustomerId) {
+          const customer = await StripePayment.createCustomer({
+            user_id: user.id,
+            name: user.name,
+            email: user.email,
+          });
+          stripeCustomerId = customer.id;
+
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { billing_id: stripeCustomerId },
+          });
+        }
       }
 
       // 3. Create Payment Intent
       const paymentIntent = await StripePayment.createPaymentIntent({
         amount: totalAmount,
-        currency: 'usd',
+        currency: 'eur',
         customer_id: stripeCustomerId,
         metadata: {
           type: 'coin_checkout',
-          user_id: userId,
+          user_id: userId || 'guest',
           bundle_count: items.length.toString(),
         },
       });
@@ -614,7 +623,7 @@ export class CoinService {
           {
             order_id: null,
             amount: totalAmount,
-            currency: 'usd',
+            currency: 'eur',
             reference_number: paymentIntent.id,
             status: 'pending',
             type: 'coin_checkout',
@@ -634,7 +643,7 @@ export class CoinService {
           // Create coin order
           const order = await prisma.coinOrder.create({
             data: {
-              user_id: userId,
+              user_id: userId || null,
               coin_bundle_id: item.bundle.id,
               amount: item.price, // Use calculated price
               quantity: item.quantity,
@@ -688,7 +697,7 @@ export class CoinService {
     }
   }
 
-  async paypalCheckout(userId: string, body: CheckoutCoinDto) {
+  async paypalCheckout(body: CheckoutCoinDto, userId: string | null) {
     // 1. Check system lock
     if (this.isSystemLocked) {
       return {
@@ -706,6 +715,11 @@ export class CoinService {
       let sugo_id = body.sugo_id;
 
       if (body.checkout_id) {
+        if (!userId) {
+          throw new BadRequestException(
+            'Checkout draft is only available for logged-in users',
+          );
+        }
         const draft = await this.prisma.coinCheckout.findUnique({
           where: { id: body.checkout_id },
           include: { items: true },
@@ -849,7 +863,7 @@ export class CoinService {
       }
 
       // 2. PayPal Create Order
-      const order = await PaypalPayment.createOrder(totalAmount, 'USD');
+      const order = await PaypalPayment.createOrder(totalAmount, 'EUR');
       console.log('PayPal Order Response:', JSON.stringify(order, null, 2));
 
       // 3. Create Transaction and Orders
@@ -858,7 +872,7 @@ export class CoinService {
           {
             order_id: null,
             amount: totalAmount,
-            currency: 'usd',
+            currency: 'eur',
             reference_number: order.id,
             status: 'pending',
             type: 'coin_checkout',
@@ -877,7 +891,7 @@ export class CoinService {
 
           const coinOrder = await prisma.coinOrder.create({
             data: {
-              user_id: userId,
+              user_id: userId || null,
               coin_bundle_id: item.bundle.id,
               amount: item.price,
               quantity: item.quantity,
