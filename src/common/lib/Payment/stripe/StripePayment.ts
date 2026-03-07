@@ -135,13 +135,13 @@ export class StripePayment {
   }: {
     amount: number;
     currency: string;
-    customer_id: string;
+    customer_id?: string;
     metadata?: stripe.MetadataParam;
   }): Promise<stripe.PaymentIntent> {
     return Stripe.paymentIntents.create({
       amount: amount * 100, // amount in cents
       currency: currency,
-      customer: customer_id,
+      ...(customer_id && { customer: customer_id }),
       metadata: metadata,
     });
   }

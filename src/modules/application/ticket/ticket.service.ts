@@ -214,7 +214,7 @@ export class TicketService {
       // 3. Create Payment Intent
       const paymentIntent = await StripePayment.createPaymentIntent({
         amount: totalAmount,
-        currency: 'usd',
+        currency: 'eur',
         customer_id: stripeCustomerId,
         metadata: {
           type: 'ticket_checkout',
@@ -230,7 +230,7 @@ export class TicketService {
           {
             order_id: null, // Will key this manually or leave null as it's multiple orders
             amount: totalAmount,
-            currency: 'usd',
+            currency: 'eur',
             reference_number: paymentIntent.id,
             status: 'pending',
             type: 'ticket_checkout',
@@ -429,7 +429,7 @@ export class TicketService {
       }
 
       // 2. PayPal Create Order
-      const order = await PaypalPayment.createOrder(totalAmount, 'USD');
+      const order = await PaypalPayment.createOrder(totalAmount, 'EUR');
 
       // 3. Create Transaction and Orders
       const result = await this.prisma.$transaction(async (prisma) => {
@@ -437,7 +437,7 @@ export class TicketService {
           {
             order_id: null,
             amount: totalAmount,
-            currency: 'usd',
+            currency: 'eur',
             reference_number: order.id,
             status: 'pending',
             type: 'ticket_checkout',
