@@ -12,6 +12,7 @@ import { TransactionRepository } from 'src/common/repository/transaction/transac
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { Public } from 'src/common/guard/public';
+import { CoinService } from '../../coin/coin.service';
 
 @Controller('payment/paypal')
 export class PaypalController {
@@ -19,6 +20,7 @@ export class PaypalController {
     private readonly transactionRepository: TransactionRepository,
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly coinService: CoinService,
   ) {}
 
   @Public()
@@ -112,12 +114,22 @@ export class PaypalController {
       return; // Already processed
     }
 
+    const pMethod = captureData?.payment_source?.paypal
+      ? 'paypal'
+      : Object.keys(captureData?.payment_source || {})[0] || 'paypal';
+    const payer = captureData?.payment_source?.paypal;
+    const address = payer?.address
+      ? `${payer.address.address_line_1 || ''} ${payer.address.admin_area_2 || ''} ${payer.address.postal_code || ''} ${payer.address.country_code || ''}`.trim()
+      : null;
+
     await this.transactionRepository.updateTransaction({
       reference_number: orderId,
       status: 'succeeded',
       paid_amount: parseFloat(captureData.amount.value),
       paid_currency: captureData.amount.currency_code,
       raw_status: captureData.status,
+      payment_method: pMethod,
+      billing_address: address,
     });
 
     // Update Order Status (Coin or Ticket)
@@ -129,6 +141,48 @@ export class PaypalController {
         where: { transaction_id: transaction.id },
         data: { status: 'completed' },
       });
+
+      const orders = await this.prisma.coinOrder.findMany({
+        where: { transaction_id: transaction.id },
+      });
+
+      let totalCoinAmount = 0;
+      let sugo_id = '';
+      const orderIds = [];
+      let userId = orders[0]?.user_id || null;
+
+      for (const order of orders) {
+        totalCoinAmount += order.coin_amount || 0;
+        if (order.sugo_id) sugo_id = order.sugo_id;
+        orderIds.push(order.id);
+      }
+
+      if (sugo_id && totalCoinAmount > 0) {
+        if (userId) {
+          const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, email: true },
+          });
+
+          if (user && user.email) {
+            console.log('User found', user.email);
+            await this.mailService.sendCoinPaymentSuccessEmail({
+              email: user.email,
+              name: user.name || '',
+              amount: totalCoinAmount,
+              sugoId: sugo_id,
+            });
+          }
+          console.log('Mail sent successfully');
+        }
+
+        await this.coinService.transferCoinsToSugo(
+          sugo_id,
+          totalCoinAmount,
+          userId,
+          orderIds,
+        );
+      }
     } else if (
       transaction.type === 'ticket_order' ||
       transaction.type === 'ticket_checkout'

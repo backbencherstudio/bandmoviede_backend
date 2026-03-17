@@ -103,6 +103,32 @@ export class MailService {
     }
   }
 
+  async sendCoinPaymentSuccessEmail(params: {
+    email: string;
+    name: string;
+    amount: number;
+    sugoId: string;
+  }) {
+    try {
+      console.log('MailService: Adding to queue', params.email);
+      // add to queue
+      await this.queue.add('sendCoinPaymentSuccessEmail', {
+        to: params.email,
+        subject:
+          'Your Coin Purchase Payment Successful, You will get your coins soon',
+        template: './coin-payment-success',
+        context: {
+          name: params.name,
+          amount: params.amount,
+          sugoId: params.sugoId,
+          appName: appConfig().app.name,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   async sendCoinTransferSuccessEmail(params: {
     email: string;
     name: string;
@@ -113,7 +139,7 @@ export class MailService {
       // add to queue
       await this.queue.add('sendCoinTransferSuccessEmail', {
         to: params.email,
-        subject: 'Coin Transfer Successful',
+        subject: 'Your Coin Transfer Successful',
         template: './coin-transfer-success',
         context: {
           name: params.name,
@@ -126,6 +152,7 @@ export class MailService {
       console.log(error);
     }
   }
+
   async sendTicketPurchaseEmail(params: {
     email: string;
     name: string;
@@ -162,6 +189,7 @@ export class MailService {
 
       const to = params.emails[0];
       const cc = params.emails.length > 1 ? params.emails.slice(1) : [];
+      0;
 
       await this.queue.add('sendContactNotificationToAdmin', {
         to: to,

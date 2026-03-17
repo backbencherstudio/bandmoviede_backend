@@ -583,7 +583,9 @@ export class CoinService {
       let stripeCustomerId = undefined;
 
       if (userId) {
-        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+        });
         if (!user) {
           throw new NotFoundException('User not found');
         }
@@ -1214,10 +1216,10 @@ export class CoinService {
     }
   }
 
-  private async transferCoinsToSugo(
+  async transferCoinsToSugo(
     sugoId: string,
     amount: number,
-    userId: string,
+    userId: string | null,
     orderIds: string[] = [],
   ) {
     const url = appConfig().sugo.coinTransferUrl;
@@ -1258,14 +1260,17 @@ export class CoinService {
       const responseData = result.data;
       console.log('Sugo Response Data:', responseData);
 
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      });
+      let user = null;
+      if (userId) {
+        user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        });
+      }
 
       // Handle 80002 code: Owner balance not enough
       // {"rspHead":{"code":0, "prompt":""}, "balance":"290"}
@@ -1294,32 +1299,34 @@ export class CoinService {
         await updateOrderDetails(0, 'Success');
 
         // sent client notification
-        const coinPurchasePayload: any = {
-          sender_id: null,
-          receiver_id: userId,
-          text: `Your coin ${amount} is successfully transferred to your Sugo account ${sugoId}`,
-          type: 'client_coin_purchase',
-        };
+        if (userId) {
+          const coinPurchasePayload: any = {
+            sender_id: null,
+            receiver_id: userId,
+            text: `Your coin ${amount} is successfully transferred to your Sugo account ${sugoId}`,
+            type: 'client_coin_purchase',
+          };
 
-        this.notificationRepository.createNotification(coinPurchasePayload);
+          this.notificationRepository.createNotification(coinPurchasePayload);
 
-        const userSocketId = this.messageGateway.clients.get(userId);
+          const userSocketId = this.messageGateway.clients.get(userId);
 
-        if (userSocketId) {
-          this.messageGateway.server
-            .to(userSocketId)
-            .emit('coinTransferDone', coinPurchasePayload);
+          if (userSocketId) {
+            this.messageGateway.server
+              .to(userSocketId)
+              .emit('coinTransferDone', coinPurchasePayload);
+          }
         }
 
         // send email
-        if (user && user.email) {
-          await this.mailService.sendCoinTransferSuccessEmail({
-            email: user.email,
-            name: user.name || '',
-            amount,
-            sugoId,
-          });
-        }
+        // if (user && user.email) {
+        //   await this.mailService.sendCoinTransferSuccessEmail({
+        //     email: user.email,
+        //     name: user.name || '',
+        //     amount,
+        //     sugoId,
+        //   });
+        // }
 
         return {
           success: true,
@@ -1464,7 +1471,13 @@ export class CoinService {
     }
   }
 
-  private async notifyUser(userId: string, message: string, eventName: string) {
+  private async notifyUser(
+    userId: string | null,
+    message: string,
+    eventName: string,
+  ) {
+    if (!userId) return;
+
     const payload: any = {
       sender_id: null,
       receiver_id: userId,

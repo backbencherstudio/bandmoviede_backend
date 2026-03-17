@@ -70,12 +70,16 @@ export class TransactionRepository {
     paid_amount,
     paid_currency,
     raw_status,
+    billing_address,
+    payment_method,
   }: {
     reference_number: string;
     status: string;
     paid_amount?: number;
     paid_currency?: string;
     raw_status?: string;
+    billing_address?: string;
+    payment_method?: string;
   }) {
     const data = {};
     const order_data = {};
@@ -94,6 +98,12 @@ export class TransactionRepository {
     if (raw_status) {
       data['raw_status'] = raw_status;
       order_data['payment_raw_status'] = raw_status;
+    }
+    if (billing_address) {
+      data['billing_address'] = billing_address;
+    }
+    if (payment_method) {
+      data['payment_method'] = payment_method;
     }
 
     const paymentTransaction = await this.prisma.paymentTransaction.findMany({

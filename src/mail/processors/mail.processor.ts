@@ -73,6 +73,15 @@ export class MailProcessor extends WorkerHost {
             context: job.data.context,
           });
           break;
+        case 'sendCoinPaymentSuccessEmail':
+          this.logger.log('Sending coin payment success email');
+          await this.mailerService.sendMail({
+            to: job.data.to,
+            subject: job.data.subject,
+            template: job.data.template,
+            context: job.data.context,
+          });
+          break;
         case 'sendTicketPurchaseEmail':
           this.logger.log('Sending ticket purchase email');
           await this.mailerService.sendMail({
