@@ -8,5 +8,6 @@ import { OwnerModule } from 'src/modules/admin/owner/owner.module';
   imports: [OwnerModule],
   controllers: [CoinController],
   providers: [CoinService],
+  exports: [CoinService],
 })
 export class CoinModule {}
