@@ -85,13 +85,17 @@ export class OrderService {
             o.status_msg,
             o.quantity AS amount,
             o.created_at AS payment_date,
+            o.created_at AS created_at,
             u.name AS user_name,
             'COIN' AS type,
             cb.name AS coin_name,
             NULL AS ticket_title,
             cb.thumbnail AS thumbnail,
+            o.sugo_id AS sugo_id,
             NULL AS ticket_number,
             pt.reference_number AS payment_number,
+            pt.payment_method AS payment_method,
+            pt.billing_address AS billing_address,
             NULL AS used -- Added placeholder
           FROM coin_orders o
           LEFT JOIN users u ON o.user_id = u.id
@@ -113,13 +117,17 @@ export class OrderService {
             NULL AS status_msg,
             1 AS amount,
             o.created_at AS payment_date,
+            o.created_at AS created_at,
             u.name AS user_name,
             'TICKET' AS type,
             NULL AS coin_name,
             et.title AS ticket_title,
             et.thumbnail AS thumbnail,
+            NULL AS sugo_id,
             o.ticket_code AS ticket_number,
             pt.reference_number AS payment_number,
+            pt.payment_method AS payment_method,
+            pt.billing_address AS billing_address,
             o.used AS used -- Added used field
           FROM event_orders o
           LEFT JOIN users u ON o.user_id = u.id
@@ -144,11 +152,15 @@ export class OrderService {
           o.coin_amount as coin_amount,
           o.quantity as quantity,
           o.created_at AS payment_date,
+          o.created_at AS created_at,
           u.name AS user_name,
           'COIN' AS type,
           cb.name AS coin_name,
           cb.thumbnail AS thumbnail,
+          o.sugo_id AS sugo_id,
           pt.reference_number AS payment_number,
+          pt.payment_method AS payment_method,
+          pt.billing_address AS billing_address,
           NULL AS used -- Added placeholder
         FROM coin_orders o
         LEFT JOIN users u ON o.user_id = u.id
@@ -169,12 +181,16 @@ export class OrderService {
           o.status,
           1 AS quantity,
           o.created_at AS payment_date,
+          o.created_at AS created_at,
           u.name AS user_name,
           'TICKET' AS type,
           et.title AS ticket_title,
           et.thumbnail AS thumbnail,
+          NULL AS sugo_id,
           o.ticket_code AS ticket_number,
           pt.reference_number AS payment_number,
+          pt.payment_method AS payment_method,
+          pt.billing_address AS billing_address,
           o.used AS used -- Added used field
         FROM event_orders o
         LEFT JOIN users u ON o.user_id = u.id

@@ -277,18 +277,21 @@ model PaymentTransaction {
   user    User?   @relation(fields: [user_id], references: [id])
 
   order_id         String?
-  type             String?      @default("order")
-  withdraw_via     String?      @default("wallet")
+  type             String?  @default("order")
+  withdraw_via     String?  @default("wallet")
   provider         String?
   reference_number String?
-  status           String?      @default("pending")
+  status           String?  @default("pending")
   raw_status       String?
   amount           Decimal?
   currency         String?
-  paid_amount      Decimal?
-  paid_currency    String?
-  coinOrders       CoinOrder[]
-  eventOrders      EventOrder[]
+
+  billing_address String?
+  payment_method  String?
+  paid_amount     Decimal?
+  paid_currency   String?
+  coinOrders      CoinOrder[]
+  eventOrders     EventOrder[]
 
   @@map("payment_transactions")
 }
