@@ -27,7 +27,7 @@ import { memoryStorage } from 'multer';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
 
 @ApiBearerAuth()
-@ApiTags('Coin')
+@ApiTags('Admin/Ticket')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 @Controller('admin/ticket')

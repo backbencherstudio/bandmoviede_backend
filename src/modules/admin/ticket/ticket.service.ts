@@ -12,6 +12,7 @@ import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
 import { FindAllQueryDto } from './dto/query-ticket.dto';
 import { Prisma } from 'prisma/generated/client';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class TicketService {
@@ -374,5 +375,31 @@ export class TicketService {
         total_upcoming: totalUpcoming || 0,
       },
     };
+  }
+
+  // Cron job to check event_date and set status to Inactive
+  // Runs at 00:00 (start of day), 12:00 (middle of day), and 23:00 (end of day)
+  @Cron('0 0,12,23 * * *')
+  async handleTicketStatusCron() {
+    const now = new Date();
+    try {
+      await this.prisma.eventTicket.updateMany({
+        where: {
+          event_date: {
+            lt: now,
+          },
+          status: 'Active',
+          deleted_at: null,
+        },
+        data: {
+          status: 'Inactive',
+        },
+      });
+      console.log(
+        'Cron job ran successfully: Updated expired event tickets to Inactive.',
+      );
+    } catch (error) {
+      console.error('Error in handleTicketStatusCron:', error);
+    }
   }
 }
